@@ -11,6 +11,7 @@ var (
 	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39"))
 	dimStyle    = lipgloss.NewStyle().Faint(true)
 	nameStyle   = lipgloss.NewStyle().Bold(true)
+	labelStyle  = lipgloss.NewStyle().Faint(true)
 	errStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
 
 	green  = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
@@ -18,6 +19,8 @@ var (
 	red    = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
 	blue   = lipgloss.NewStyle().Foreground(lipgloss.Color("39"))
 )
+
+const gaugeWidth = 10
 
 // sparkBlocks are eight increasing heights used to draw a sparkline.
 var sparkBlocks = []rune("▁▂▃▄▅▆▇█")
@@ -37,39 +40,39 @@ func styleFor(pct float64) lipgloss.Style {
 	}
 }
 
-// gauge renders a colored htop-style bar, or a placeholder when % is unknown.
+// gauge renders a colored level bar inside a thin bracket with the percentage,
+// e.g. "▕████····▏ 76%". The empty track is shown with dim dots; an unknown
+// total (no limit) keeps the same width and shows "n/a".
 func gauge(pct float64) string {
 	if pct < 0 {
-		return dimStyle.Render("[ no limit ]") + "     "
+		track := dimStyle.Render(strings.Repeat("·", gaugeWidth))
+		return "▕" + track + "▏" + dimStyle.Render("  n/a")
 	}
-	const width = 12
-	filled := int(pct/100*width + 0.5)
-	if filled > width {
-		filled = width
+	filled := int(pct/100*gaugeWidth + 0.5)
+	if filled > gaugeWidth {
+		filled = gaugeWidth
 	}
-	bar := strings.Repeat("█", filled) + strings.Repeat(" ", width-filled)
-	return "[" + styleFor(pct).Render(bar) + "] " + fmt.Sprintf("%3.0f%%", pct)
+	bar := styleFor(pct).Render(strings.Repeat("█", filled)) +
+		dimStyle.Render(strings.Repeat("·", gaugeWidth-filled))
+	return "▕" + bar + "▏" + fmt.Sprintf(" %3.0f%%", pct)
 }
 
-// spark renders the value history as a colored sparkline. When pct is known the
-// scale is the same 0..100 as the gauge; otherwise it auto-scales between the
-// window's own min and max, so steady usage shows as a flat low line rather
-// than a solid block.
+// spark renders the value history as a colored sparkline scaled between the
+// window's own min and max, so it reads as a trend graph (the gauge already
+// shows the absolute level). Steady usage shows as a flat low line. Color
+// follows the current utilization.
 func spark(vals []float64, pct float64) string {
 	if len(vals) == 0 {
 		return ""
 	}
 
-	lo, hi := 0.0, 100.0
-	if pct < 0 {
-		lo, hi = vals[0], vals[0]
-		for _, v := range vals {
-			if v < lo {
-				lo = v
-			}
-			if v > hi {
-				hi = v
-			}
+	lo, hi := vals[0], vals[0]
+	for _, v := range vals {
+		if v < lo {
+			lo = v
+		}
+		if v > hi {
+			hi = v
 		}
 	}
 	span := hi - lo

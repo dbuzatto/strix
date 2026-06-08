@@ -134,12 +134,12 @@ func (m model) View() string {
 	return b.String()
 }
 
-// maxRows is how many 3-line entries fit in the current window height.
+// maxRows is how many 4-line entries (name, CPU, MEM, blank) fit in the window.
 func (m model) maxRows() int {
 	if m.h <= 0 {
 		return 0
 	}
-	return (m.h - 3) / 3
+	return (m.h - 3) / 4
 }
 
 func (m model) renderRow(u k8s.Usage) string {
@@ -149,17 +149,14 @@ func (m model) renderRow(u k8s.Usage) string {
 		name = u.Namespace + "/" + u.Name
 	}
 
-	cpuPct := u.CPUPercent()
-	memPct := u.MemPercent()
+	cpuLine := fmt.Sprintf("  %s %9s  %s  %s",
+		labelStyle.Render("CPU"), fmtCPU(u.CPUUsed.MilliValue()),
+		gauge(u.CPUPercent()), spark(m.cpuHist[k], u.CPUPercent()))
+	memLine := fmt.Sprintf("  %s %9s  %s  %s",
+		labelStyle.Render("MEM"), fmtMem(u.MemUsed.Value()),
+		gauge(u.MemPercent()), spark(m.memHist[k], u.MemPercent()))
 
-	cpuLine := fmt.Sprintf("  %-5s %9s  %s  %s",
-		"CPU", fmtCPU(u.CPUUsed.MilliValue()),
-		gauge(cpuPct), spark(m.cpuHist[k], cpuPct))
-	memLine := fmt.Sprintf("  %-5s %9s  %s  %s",
-		"MEM", fmtMem(u.MemUsed.Value()),
-		gauge(memPct), spark(m.memHist[k], memPct))
-
-	return nameStyle.Render(name) + "\n" + cpuLine + "\n" + memLine + "\n"
+	return nameStyle.Render(name) + "\n" + cpuLine + "\n" + memLine + "\n\n"
 }
 
 func key(u k8s.Usage) string { return u.Namespace + "/" + u.Name }
