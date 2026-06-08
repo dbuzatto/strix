@@ -26,7 +26,7 @@ deployments.
 - [x] `strix analyze <kind/name>` — gather status + events + logs and explain
 - [x] AI backend: detect local `claude`; fall back to `ANTHROPIC_API_KEY` (API backend WIP)
 - [x] `strix top nodes|pods` — CPU/memory usage with gauges (metrics-server)
-- [ ] `strix top --watch` — live resource dashboards (htop-like)
+- [x] `strix top --watch` — live dashboard with real-time sparklines (htop-like)
 - [ ] `strix logs <pod> --ai`
 - [ ] `strix ctx` — switch context
 
@@ -64,6 +64,17 @@ is emitted so files and downstream tools stay clean.
 
 The AI backend is auto-detected: if the `claude` CLI is installed and logged in,
 Strix uses it (no API key needed); otherwise it looks for `ANTHROPIC_API_KEY`.
+
+### Resource usage
+
+```bash
+strix top nodes            # node CPU/memory with usage gauges
+strix top pods -A          # pod usage across all namespaces
+strix top nodes --watch    # live htop-style dashboard with sparklines (q to quit)
+```
+
+`top` reads the metrics-server (`metrics.k8s.io`); `--watch` takes over the
+screen and returns you to the shell on `q`.
 
 ## Configuration
 

@@ -9,8 +9,11 @@ import (
 	"time"
 
 	"github.com/dbuzatto/strix/internal/k8s"
+	"github.com/dbuzatto/strix/internal/tui"
 	"github.com/spf13/cobra"
 )
+
+var flagTopWatch bool
 
 var topCmd = &cobra.Command{
 	Use:   "top",
@@ -34,6 +37,7 @@ var topPodsCmd = &cobra.Command{
 }
 
 func init() {
+	topCmd.PersistentFlags().BoolVarP(&flagTopWatch, "watch", "w", false, "live dashboard with real-time graphs (htop-style)")
 	topCmd.AddCommand(topNodesCmd, topPodsCmd)
 	rootCmd.AddCommand(topCmd)
 }
@@ -51,6 +55,11 @@ func runTopNodes(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
+	if flagTopWatch {
+		return tui.Run("Nodes", client.NodeUsage)
+	}
+
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 	defer cancel()
 
@@ -79,6 +88,16 @@ func runTopPods(cmd *cobra.Command, args []string) error {
 	ns := client.Namespace
 	if flagAllNS {
 		ns = ""
+	}
+
+	if flagTopWatch {
+		title := "Pods"
+		if ns != "" {
+			title = "Pods · " + ns
+		}
+		return tui.Run(title, func(ctx context.Context) ([]k8s.Usage, error) {
+			return client.PodUsage(ctx, ns)
+		})
 	}
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
