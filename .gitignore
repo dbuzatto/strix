@@ -1,0 +1,20 @@
+# Binaries
+/strix
+/dist/
+*.exe
+*.test
+*.out
+
+# Go
+vendor/
+
+# Claude / local AI tooling — never commit
+CLAUDE.md
+.claude/
+.mcp.json
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
