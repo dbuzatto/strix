@@ -9,6 +9,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // Usage is a CPU/memory usage sample for a node or pod, with totals where known.
@@ -67,11 +68,14 @@ func (c *Client) NodeUsage(ctx context.Context) ([]Usage, error) {
 	return out, nil
 }
 
-// PodUsage returns per-pod CPU/memory usage (summed across containers) in ns.
-// An empty ns means all namespaces. Pod resource limits are joined in when
-// available so usage can be shown as a percentage.
-func (c *Client) PodUsage(ctx context.Context, ns string) ([]Usage, error) {
-	metrics, err := c.Metrics.MetricsV1beta1().PodMetricses(ns).List(ctx, metav1.ListOptions{})
+// PodUsage returns per-pod CPU/memory usage (summed across containers) in ns,
+// optionally filtered by a label selector ("" = no filter). An empty ns means
+// all namespaces. Pod resource limits are joined in when available so usage can
+// be shown as a percentage.
+func (c *Client) PodUsage(ctx context.Context, ns, selector string) ([]Usage, error) {
+	listOpts := metav1.ListOptions{LabelSelector: selector}
+
+	metrics, err := c.Metrics.MetricsV1beta1().PodMetricses(ns).List(ctx, listOpts)
 	if err != nil {
 		return nil, metricsErr(err)
 	}
@@ -79,7 +83,7 @@ func (c *Client) PodUsage(ctx context.Context, ns string) ([]Usage, error) {
 	// Best-effort: learn each pod's limits so we can render a percentage gauge.
 	cpuLim := map[string]resource.Quantity{}
 	memLim := map[string]resource.Quantity{}
-	if pods, perr := c.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{}); perr == nil {
+	if pods, perr := c.Clientset.CoreV1().Pods(ns).List(ctx, listOpts); perr == nil {
 		for i := range pods.Items {
 			p := &pods.Items[i]
 			k := p.Namespace + "/" + p.Name
@@ -111,6 +115,16 @@ func (c *Client) PodUsage(ctx context.Context, ns string) ([]Usage, error) {
 	}
 	sortByCPU(out)
 	return out, nil
+}
+
+// DeploymentSelector returns the label selector of a deployment as a string,
+// suitable for filtering its pods.
+func (c *Client) DeploymentSelector(ctx context.Context, ns, name string) (string, error) {
+	dep, err := c.Clientset.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return "", fmt.Errorf("getting deployment: %w", err)
+	}
+	return labels.Set(dep.Spec.Selector.MatchLabels).AsSelector().String(), nil
 }
 
 // sumLimit sums a resource limit across all containers. ok is false when any

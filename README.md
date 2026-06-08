@@ -68,9 +68,11 @@ Strix uses it (no API key needed); otherwise it looks for `ANTHROPIC_API_KEY`.
 ### Resource usage
 
 ```bash
-strix top nodes            # node CPU/memory with usage gauges
-strix top pods -A          # pod usage across all namespaces
-strix top nodes --watch    # live htop-style dashboard with sparklines (q to quit)
+strix top nodes                    # node CPU/memory with usage gauges
+strix top pods -A                  # pod usage across all namespaces
+strix top pods -l app=api          # filter pods by label selector
+strix top deployment/api -n prod   # usage of just a deployment's pods
+strix top nodes --watch            # live htop-style dashboard (q to quit)
 ```
 
 `top` reads the metrics-server (`metrics.k8s.io`); `--watch` takes over the

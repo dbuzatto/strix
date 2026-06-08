@@ -13,11 +13,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var flagTopWatch bool
+var (
+	flagTopWatch    bool
+	flagTopSelector string
+)
 
 var topCmd = &cobra.Command{
-	Use:   "top",
+	Use:   "top [deployment/NAME]",
 	Short: "Show CPU/memory usage (requires metrics-server)",
+	Long: `Show CPU/memory usage from metrics-server.
+
+Use the 'nodes' or 'pods' subcommands, or pass a deployment to see the usage of
+just its pods:
+
+  strix top nodes
+  strix top pods -n prod -l app=api
+  strix top deployment/api -n prod --watch`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runTopDeployment,
 }
 
 var topNodesCmd = &cobra.Command{
@@ -38,6 +51,7 @@ var topPodsCmd = &cobra.Command{
 
 func init() {
 	topCmd.PersistentFlags().BoolVarP(&flagTopWatch, "watch", "w", false, "live dashboard with real-time graphs (htop-style)")
+	topPodsCmd.Flags().StringVarP(&flagTopSelector, "selector", "l", "", "label selector to filter pods (e.g. app=api)")
 	topCmd.AddCommand(topNodesCmd, topPodsCmd)
 	rootCmd.AddCommand(topCmd)
 }
@@ -90,20 +104,57 @@ func runTopPods(cmd *cobra.Command, args []string) error {
 		ns = ""
 	}
 
-	if flagTopWatch {
-		title := "Pods"
-		if ns != "" {
-			title = "Pods · " + ns
-		}
-		return tui.Run(title, func(ctx context.Context) ([]k8s.Usage, error) {
-			return client.PodUsage(ctx, ns)
-		})
+	title := "Pods"
+	if ns != "" {
+		title = "Pods · " + ns
+	}
+	return showPods(cmd.Context(), client, ns, flagTopSelector, title)
+}
+
+// runTopDeployment handles `strix top deployment/NAME`; with no args it shows help.
+func runTopDeployment(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return cmd.Help()
 	}
 
-	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	ref, err := k8s.ParseRef(args[0])
+	if err != nil {
+		return err
+	}
+	if ref.Kind != "deployment" {
+		return fmt.Errorf("strix top takes 'nodes', 'pods', or 'deployment/NAME'; got %q", args[0])
+	}
+
+	client, err := newClient()
+	if err != nil {
+		return err
+	}
+	ns := client.Namespace
+
+	sctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	selector, err := client.DeploymentSelector(sctx, ns, ref.Name)
+	cancel()
+	if err != nil {
+		return err
+	}
+
+	return showPods(cmd.Context(), client, ns, selector, ref.String()+" · "+ns)
+}
+
+// showPods renders pod usage as a snapshot table, or the live dashboard with -w.
+func showPods(ctx context.Context, client *k8s.Client, ns, selector, title string) error {
+	fetch := func(ctx context.Context) ([]k8s.Usage, error) {
+		return client.PodUsage(ctx, ns, selector)
+	}
+
+	if flagTopWatch {
+		return tui.Run(title, fetch)
+	}
+
+	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	usage, err := client.PodUsage(ctx, ns)
+	usage, err := fetch(cctx)
 	if err != nil {
 		return err
 	}
