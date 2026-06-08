@@ -7,14 +7,18 @@ import (
 	"time"
 
 	"github.com/dbuzatto/strix/internal/ai"
+	"github.com/dbuzatto/strix/internal/config"
 	"github.com/dbuzatto/strix/internal/k8s"
 	"github.com/spf13/cobra"
 )
 
 var (
-	flagAnalyzeTail int64
-	flagAnalyzeRaw  bool
-	flagAnalyzeOut  string
+	flagAnalyzeTail   int64
+	flagAnalyzeRaw    bool
+	flagAnalyzeOut    string
+	flagAnalyzePrompt string
+	flagAnalyzeLang   string
+	flagAnalyzeModel  string
 )
 
 const analyzeInstruction = `You are a senior Kubernetes SRE. Analyze the evidence below (resource status, events and container logs) and produce a concise root-cause analysis.
@@ -36,7 +40,10 @@ Supported kinds: pod, deployment.
 Examples:
   strix analyze pod/api-7d9f -n prod
   strix analyze deployment/api -n prod -o report.md
-  strix analyze pod/api-7d9f --raw      # print the evidence, skip the AI`,
+  strix analyze pod/api-7d9f --raw                      # print the evidence, skip the AI
+  strix analyze pod/api-7d9f --lang pt                  # answer in Portuguese
+  strix analyze pod/api-7d9f --prompt "por que reinicia?"
+  strix analyze deployment/api -m opus                 # pick the Claude model`,
 	Args: cobra.ExactArgs(1),
 	RunE: runAnalyze,
 }
@@ -46,13 +53,48 @@ func init() {
 	f.Int64Var(&flagAnalyzeTail, "tail", 100, "log lines to gather per container")
 	f.BoolVar(&flagAnalyzeRaw, "raw", false, "print the gathered evidence without calling the AI")
 	f.StringVarP(&flagAnalyzeOut, "out", "o", "", "write the result to a file instead of stdout")
+	f.StringVar(&flagAnalyzePrompt, "prompt", "", "custom question for the AI (overrides the default root-cause analysis)")
+	f.StringVar(&flagAnalyzeLang, "lang", "", "language for the AI answer (e.g. pt, en, \"português\")")
+	f.StringVarP(&flagAnalyzeModel, "model", "m", "", "Claude model: opus, sonnet, haiku, or a full id (default: your Claude Code default)")
 	rootCmd.AddCommand(analyzeCmd)
+}
+
+// buildInstruction assembles the prompt sent to the AI: either the default
+// root-cause template or the user's custom question, plus an optional language.
+func buildInstruction(prompt, lang string) string {
+	instruction := analyzeInstruction
+	if prompt != "" {
+		instruction = "You are a Kubernetes expert. Using the evidence provided on stdin, answer the following request:\n\n" + prompt
+	}
+	if lang != "" {
+		instruction += "\n\nWrite your entire answer in this language: " + lang + "."
+	}
+	return instruction
 }
 
 func runAnalyze(cmd *cobra.Command, args []string) error {
 	ref, err := k8s.ParseRef(args[0])
 	if err != nil {
 		return err
+	}
+
+	// Resolve effective settings: an explicit flag wins, otherwise the config
+	// file, otherwise the built-in default already held by the flag variable.
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	model := flagAnalyzeModel
+	if !cmd.Flags().Changed("model") && cfg.Model != "" {
+		model = cfg.Model
+	}
+	lang := flagAnalyzeLang
+	if !cmd.Flags().Changed("lang") && cfg.Lang != "" {
+		lang = cfg.Lang
+	}
+	tail := flagAnalyzeTail
+	if !cmd.Flags().Changed("tail") && cfg.Tail > 0 {
+		tail = cfg.Tail
 	}
 
 	client, err := k8s.New(k8s.Options{
@@ -69,7 +111,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 
 	evidence, err := client.Gather(gatherCtx, ref, k8s.GatherOptions{
 		Namespace: flagNamespace,
-		TailLines: flagAnalyzeTail,
+		TailLines: tail,
 	})
 	if err != nil {
 		return err
@@ -77,7 +119,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 
 	output := evidence
 	if !flagAnalyzeRaw {
-		provider, err := ai.Detect()
+		provider, err := ai.Detect(ai.Options{Model: model})
 		if err != nil {
 			return err
 		}
@@ -86,7 +128,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		aiCtx, cancelAI := context.WithTimeout(cmd.Context(), 3*time.Minute)
 		defer cancelAI()
 
-		output, err = provider.Analyze(aiCtx, analyzeInstruction, evidence)
+		output, err = provider.Analyze(aiCtx, buildInstruction(flagAnalyzePrompt, lang), evidence)
 		if err != nil {
 			return err
 		}

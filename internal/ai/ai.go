@@ -17,14 +17,21 @@ type Provider interface {
 	Analyze(ctx context.Context, instruction, evidence string) (string, error)
 }
 
+// Options configure the chosen backend.
+type Options struct {
+	// Model selects the model to use (e.g. "opus", "sonnet", a full id).
+	// Empty means the backend's own default.
+	Model string
+}
+
 // Detect picks an AI backend in priority order:
 //  1. a local Claude Code install (`claude` on PATH) — uses the user's own auth
 //  2. an Anthropic API key (ANTHROPIC_API_KEY) — direct API, not yet implemented
 //
 // It returns an error if no backend is available.
-func Detect() (Provider, error) {
+func Detect(opts Options) (Provider, error) {
 	if path, err := exec.LookPath("claude"); err == nil {
-		return &ClaudeCode{Bin: path}, nil
+		return &ClaudeCode{Bin: path, Model: opts.Model}, nil
 	}
 	if os.Getenv("ANTHROPIC_API_KEY") != "" {
 		return nil, fmt.Errorf("found ANTHROPIC_API_KEY but the direct API backend is not implemented yet; install Claude Code for now")

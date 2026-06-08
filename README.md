@@ -35,11 +35,42 @@ go build -o strix .
 ## Usage
 
 ```bash
-strix analyze pod/api-7d9f -n prod          # root-cause analysis of a pod
-strix analyze deployment/api -n prod        # analyze a deployment + its pods
-strix analyze deployment/api -o report.md   # save the report to a file
-strix analyze pod/api-7d9f --raw            # print gathered evidence, skip the AI
+strix analyze pod/api-7d9f -n prod              # root-cause analysis of a pod
+strix analyze deployment/api -n prod            # analyze a deployment + its pods
+strix analyze deployment/api -o report.md       # save the report to a file
+strix analyze pod/api-7d9f --raw                # print gathered evidence, skip the AI
+strix analyze pod/api-7d9f --lang pt            # answer in Portuguese
+strix analyze pod/api-7d9f --prompt "por que reinicia?"   # your own question
+strix analyze deployment/api -m opus           # pick the Claude model
 ```
+
+| Flag | Purpose |
+| --- | --- |
+| `--prompt` | Your own question, replacing the default root-cause template |
+| `--lang` | Language of the answer (`pt`, `en`, `"português"`, …) |
+| `-m, --model` | Claude model: `opus`, `sonnet`, `haiku`, or a full id |
+| `--raw` | Print the gathered evidence without calling the AI |
+| `-o, --out` | Write the result to a file |
+| `--tail` | Log lines gathered per container (default 100) |
 
 The AI backend is auto-detected: if the `claude` CLI is installed and logged in,
 Strix uses it (no API key needed); otherwise it looks for `ANTHROPIC_API_KEY`.
+
+## Configuration
+
+Set defaults once instead of passing flags every time. Generate the file with:
+
+```bash
+strix config init     # writes ~/.config/strix/config.yaml
+strix config path     # show where it lives
+```
+
+```yaml
+# ~/.config/strix/config.yaml
+model: opus           # default Claude model
+lang: pt              # default answer language
+tail: 100             # log lines gathered per container
+```
+
+Precedence is **flag > config file > built-in default**. The path honors
+`$STRIX_CONFIG` and `$XDG_CONFIG_HOME`.
