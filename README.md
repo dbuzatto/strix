@@ -50,8 +50,13 @@ strix analyze deployment/api -m opus           # pick the Claude model
 | `--lang` | Language of the answer (`pt`, `en`, `"português"`, …) |
 | `-m, --model` | Claude model: `opus`, `sonnet`, `haiku`, or a full id |
 | `--raw` | Print the gathered evidence without calling the AI |
+| `--plain` | Plain text output, no Markdown rendering or color |
 | `-o, --out` | Write the result to a file |
 | `--tail` | Log lines gathered per container (default 100) |
+
+On an interactive terminal the AI's Markdown answer is rendered to styled ANSI
+(bold, colors, bullets). When output is piped or written with `-o`, raw Markdown
+is emitted so files and downstream tools stay clean.
 
 The AI backend is auto-detected: if the `claude` CLI is installed and logged in,
 Strix uses it (no API key needed); otherwise it looks for `ANTHROPIC_API_KEY`.

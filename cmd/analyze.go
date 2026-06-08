@@ -9,6 +9,7 @@ import (
 	"github.com/dbuzatto/strix/internal/ai"
 	"github.com/dbuzatto/strix/internal/config"
 	"github.com/dbuzatto/strix/internal/k8s"
+	"github.com/dbuzatto/strix/internal/render"
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +20,7 @@ var (
 	flagAnalyzePrompt string
 	flagAnalyzeLang   string
 	flagAnalyzeModel  string
+	flagAnalyzePlain  bool
 )
 
 const analyzeInstruction = `You are a senior Kubernetes SRE. Analyze the evidence below (resource status, events and container logs) and produce a concise root-cause analysis.
@@ -56,6 +58,7 @@ func init() {
 	f.StringVar(&flagAnalyzePrompt, "prompt", "", "custom question for the AI (overrides the default root-cause analysis)")
 	f.StringVar(&flagAnalyzeLang, "lang", "", "language for the AI answer (e.g. pt, en, \"português\")")
 	f.StringVarP(&flagAnalyzeModel, "model", "m", "", "Claude model: opus, sonnet, haiku, or a full id (default: your Claude Code default)")
+	f.BoolVar(&flagAnalyzePlain, "plain", false, "plain text output, no Markdown rendering or color")
 	rootCmd.AddCommand(analyzeCmd)
 }
 
@@ -134,12 +137,23 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Files keep raw Markdown so .md stays clean.
 	if flagAnalyzeOut != "" {
 		if err := os.WriteFile(flagAnalyzeOut, []byte(output+"\n"), 0o644); err != nil {
 			return err
 		}
 		fmt.Fprintf(os.Stderr, "strix: wrote %s\n", flagAnalyzeOut)
 		return nil
+	}
+
+	// Render Markdown to ANSI only for the AI answer on an interactive terminal.
+	// Raw evidence, pipes/redirects and --plain get the unrendered text so the
+	// bytes stay clean for files and downstream tools.
+	if !flagAnalyzeRaw && !flagAnalyzePlain && render.IsTTY() {
+		if pretty, err := render.Markdown(output); err == nil {
+			fmt.Print(pretty)
+			return nil
+		}
 	}
 
 	fmt.Println(output)
