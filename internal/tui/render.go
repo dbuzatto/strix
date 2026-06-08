@@ -52,23 +52,34 @@ func gauge(pct float64) string {
 }
 
 // spark renders the value history as a colored sparkline. When pct is known the
-// scale is 0..100; otherwise it auto-scales to the window's own maximum.
+// scale is the same 0..100 as the gauge; otherwise it auto-scales between the
+// window's own min and max, so steady usage shows as a flat low line rather
+// than a solid block.
 func spark(vals []float64, pct float64) string {
 	if len(vals) == 0 {
 		return ""
 	}
-	max := 100.0
+
+	lo, hi := 0.0, 100.0
 	if pct < 0 {
-		max = 1
+		lo, hi = vals[0], vals[0]
 		for _, v := range vals {
-			if v > max {
-				max = v
+			if v < lo {
+				lo = v
+			}
+			if v > hi {
+				hi = v
 			}
 		}
 	}
+	span := hi - lo
+
 	var sb strings.Builder
 	for _, v := range vals {
-		idx := int(v / max * float64(len(sparkBlocks)-1))
+		idx := 0
+		if span > 0 {
+			idx = int((v - lo) / span * float64(len(sparkBlocks)-1))
+		}
 		if idx < 0 {
 			idx = 0
 		}

@@ -68,11 +68,28 @@ func (c *Client) NodeUsage(ctx context.Context) ([]Usage, error) {
 }
 
 // PodUsage returns per-pod CPU/memory usage (summed across containers) in ns.
-// An empty ns means all namespaces.
+// An empty ns means all namespaces. Pod resource limits are joined in when
+// available so usage can be shown as a percentage.
 func (c *Client) PodUsage(ctx context.Context, ns string) ([]Usage, error) {
 	metrics, err := c.Metrics.MetricsV1beta1().PodMetricses(ns).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, metricsErr(err)
+	}
+
+	// Best-effort: learn each pod's limits so we can render a percentage gauge.
+	cpuLim := map[string]resource.Quantity{}
+	memLim := map[string]resource.Quantity{}
+	if pods, perr := c.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{}); perr == nil {
+		for i := range pods.Items {
+			p := &pods.Items[i]
+			k := p.Namespace + "/" + p.Name
+			if cpu, ok := sumLimit(p, corev1.ResourceCPU); ok {
+				cpuLim[k] = cpu
+			}
+			if mem, ok := sumLimit(p, corev1.ResourceMemory); ok {
+				memLim[k] = mem
+			}
+		}
 	}
 
 	out := make([]Usage, 0, len(metrics.Items))
@@ -82,15 +99,35 @@ func (c *Client) PodUsage(ctx context.Context, ns string) ([]Usage, error) {
 			cpu.Add(ct.Usage[corev1.ResourceCPU])
 			mem.Add(ct.Usage[corev1.ResourceMemory])
 		}
+		k := m.Namespace + "/" + m.Name
 		out = append(out, Usage{
 			Name:      m.Name,
 			Namespace: m.Namespace,
 			CPUUsed:   cpu,
 			MemUsed:   mem,
+			CPUTotal:  cpuLim[k],
+			MemTotal:  memLim[k],
 		})
 	}
 	sortByCPU(out)
 	return out, nil
+}
+
+// sumLimit sums a resource limit across all containers. ok is false when any
+// container lacks the limit, since the pod could then exceed the sum.
+func sumLimit(p *corev1.Pod, name corev1.ResourceName) (resource.Quantity, bool) {
+	if len(p.Spec.Containers) == 0 {
+		return resource.Quantity{}, false
+	}
+	var total resource.Quantity
+	for _, ct := range p.Spec.Containers {
+		q, ok := ct.Resources.Limits[name]
+		if !ok || q.IsZero() {
+			return resource.Quantity{}, false
+		}
+		total.Add(q)
+	}
+	return total, true
 }
 
 func sortByCPU(u []Usage) {
