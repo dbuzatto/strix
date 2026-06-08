@@ -22,7 +22,8 @@ deployments.
 - [x] Auto-detect kubeconfig (`--kubeconfig` → `$KUBECONFIG` → `~/.kube/config`)
 - [x] `strix analyze <kind/name>` — gather status + events + logs and explain
 - [x] AI backend: detect local `claude`; fall back to `ANTHROPIC_API_KEY` (API backend WIP)
-- [ ] `strix top nodes --watch` — live resource dashboards (htop-like)
+- [x] `strix top nodes|pods` — CPU/memory usage with gauges (metrics-server)
+- [ ] `strix top --watch` — live resource dashboards (htop-like)
 - [ ] `strix logs <pod> --ai`
 - [ ] `strix ctx` — switch context
 

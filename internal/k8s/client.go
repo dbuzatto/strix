@@ -7,11 +7,13 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	metricsv "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 // Client is a connected Kubernetes client plus the resolved context/namespace.
 type Client struct {
 	Clientset kubernetes.Interface
+	Metrics   metricsv.Interface
 	Namespace string
 	Context   string
 }
@@ -50,6 +52,13 @@ func New(opts Options) (*Client, error) {
 		return nil, fmt.Errorf("creating clientset: %w", err)
 	}
 
+	// The metrics clientset is built eagerly; it only fails later, when listing,
+	// if metrics-server is not installed.
+	metricsCS, err := metricsv.NewForConfig(restCfg)
+	if err != nil {
+		return nil, fmt.Errorf("creating metrics clientset: %w", err)
+	}
+
 	ns := opts.Namespace
 	if ns == "" {
 		// Resolve the namespace bound to the active context; fall back to "default".
@@ -67,5 +76,5 @@ func New(opts Options) (*Client, error) {
 		}
 	}
 
-	return &Client{Clientset: clientset, Namespace: ns, Context: ctxName}, nil
+	return &Client{Clientset: clientset, Metrics: metricsCS, Namespace: ns, Context: ctxName}, nil
 }
