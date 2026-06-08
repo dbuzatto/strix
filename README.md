@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.jpeg" alt="Strix" width="160" />
+  <img src="assets/logo.png" alt="Strix" width="160" />
   <h1>Strix</h1>
   <p><em>An owl that watches your Kubernetes cluster.</em></p>
 </div>
