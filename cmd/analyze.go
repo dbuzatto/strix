@@ -122,7 +122,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 
 	output := evidence
 	if !flagAnalyzeRaw {
-		provider, err := ai.Detect(ai.Options{Model: model})
+		provider, err := ai.Detect(ai.Options{Model: model, APIKey: cfg.APIKey, Backend: cfg.Backend})
 		if err != nil {
 			return err
 		}

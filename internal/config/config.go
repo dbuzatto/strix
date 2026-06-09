@@ -13,9 +13,11 @@ import (
 // Config holds user defaults. Field tags are JSON because sigs.k8s.io/yaml
 // decodes YAML through JSON.
 type Config struct {
-	Model string `json:"model"` // default Claude model (opus, sonnet, haiku, or a full id)
-	Lang  string `json:"lang"`  // default answer language (e.g. pt, en)
-	Tail  int64  `json:"tail"`  // default log lines gathered per container
+	Model   string `json:"model"`   // default Claude model (opus, sonnet, haiku, or a full id)
+	Lang    string `json:"lang"`    // default answer language (e.g. pt, en)
+	Tail    int64  `json:"tail"`    // default log lines gathered per container
+	APIKey  string `json:"api_key"` // optional Anthropic API key for the direct API backend
+	Backend string `json:"backend"` // AI backend: auto (default), claude-code, or api
 }
 
 // Path returns the config file location, honoring $STRIX_CONFIG, then
@@ -70,6 +72,16 @@ lang: ""
 
 # Log lines gathered per container during analysis.
 tail: 100
+
+# AI backend: auto (default), claude-code, or api.
+#   auto        prefer the local Claude Code CLI, fall back to the API key
+#   claude-code force the local 'claude' CLI
+#   api         force the direct Anthropic API (requires api_key or ANTHROPIC_API_KEY)
+backend: auto
+
+# Anthropic API key for the direct API backend. Leave empty to use the
+# ANTHROPIC_API_KEY environment variable instead. Keep this file private.
+api_key: ""
 `
 
 // WriteSample writes the commented default config to Path(), creating parent
@@ -87,7 +99,8 @@ func WriteSample(force bool) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(path, []byte(sample), 0o644); err != nil {
+	// 0600: the file may hold an API key, so keep it readable only by the user.
+	if err := os.WriteFile(path, []byte(sample), 0o600); err != nil {
 		return "", err
 	}
 	return path, nil

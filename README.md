@@ -12,8 +12,9 @@
 Strix is a terminal-first **analyzer** for Kubernetes. It is not a resource
 browser — listing pods is what `kubectl` and `k9s` are for. Strix gathers a
 resource's status, events and logs and explains **what is wrong and how to fix
-it**, using the **Claude Code already installed on your machine**, so there is
-no extra API key to manage.
+it**. By default it uses the **Claude Code already installed on your machine**
+(no extra API key to manage), and falls back to the **Anthropic API** when you
+configure a key.
 
 ## Status
 
@@ -24,7 +25,7 @@ deployments.
 
 - [x] Auto-detect kubeconfig (`--kubeconfig` → `$KUBECONFIG` → `~/.kube/config`)
 - [x] `strix analyze <kind/name>` — gather status + events + logs and explain
-- [x] AI backend: detect local `claude`; fall back to `ANTHROPIC_API_KEY` (API backend WIP)
+- [x] AI backend: local `claude` by default, or the Anthropic API via `api_key`
 - [x] `strix top nodes|pods` — CPU/memory usage with gauges (metrics-server)
 - [x] `strix top --watch` — live dashboard with real-time usage gauges (htop-like)
 - [ ] `strix logs <pod> --ai`
@@ -62,8 +63,14 @@ On an interactive terminal the AI's Markdown answer is rendered to styled ANSI
 (bold, colors, bullets). When output is piped or written with `-o`, raw Markdown
 is emitted so files and downstream tools stay clean.
 
-The AI backend is auto-detected: if the `claude` CLI is installed and logged in,
-Strix uses it (no API key needed); otherwise it looks for `ANTHROPIC_API_KEY`.
+### AI backend
+
+The backend is auto-detected: if the `claude` CLI is installed and logged in,
+Strix uses it (no API key needed); otherwise it uses the Anthropic API with the
+`api_key` from your config (or the `ANTHROPIC_API_KEY` environment variable).
+Set `backend` in the config to force one — `claude-code`, `api`, or `auto`
+(default). With the API backend, `model` accepts `opus`/`sonnet`/`haiku` or a
+full model id.
 
 ### Resource usage
 
@@ -89,10 +96,13 @@ strix config path     # show where it lives
 
 ```yaml
 # ~/.config/strix/config.yaml
-model: opus           # default Claude model
+model: opus           # default Claude model (opus, sonnet, haiku, or a full id)
 lang: pt              # default answer language
 tail: 100             # log lines gathered per container
+backend: auto         # auto | claude-code | api
+api_key: ""           # Anthropic API key for the 'api' backend (keep private)
 ```
 
 Precedence is **flag > config file > built-in default**. The path honors
-`$STRIX_CONFIG` and `$XDG_CONFIG_HOME`.
+`$STRIX_CONFIG` and `$XDG_CONFIG_HOME`. The file is written `0600` since it may
+hold your API key; leave `api_key` empty to use `ANTHROPIC_API_KEY` instead.
