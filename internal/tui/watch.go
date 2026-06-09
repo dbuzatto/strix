@@ -146,10 +146,13 @@ func (m model) renderRow(u k8s.Usage) string {
 		name = u.Namespace + "/" + u.Name
 	}
 
-	cpuLine := fmt.Sprintf("  %s %9s  %s",
-		labelStyle.Render("CPU"), fmtCPU(u.CPUUsed.MilliValue()), gauge(u.CPUPercent()))
-	memLine := fmt.Sprintf("  %s %9s  %s",
-		labelStyle.Render("MEM"), fmtMem(u.MemUsed.Value()), gauge(u.MemPercent()))
+	cpuVal := usedOfLimit(fmtCPU(u.CPUUsed.MilliValue()), fmtCPU(u.CPUTotal.MilliValue()), !u.CPUTotal.IsZero())
+	memVal := usedOfLimit(fmtMem(u.MemUsed.Value()), fmtMem(u.MemTotal.Value()), !u.MemTotal.IsZero())
+
+	cpuLine := fmt.Sprintf("  %s %-16s  %s",
+		labelStyle.Render("CPU"), cpuVal, gauge(u.CPUPercent()))
+	memLine := fmt.Sprintf("  %s %-16s  %s",
+		labelStyle.Render("MEM"), memVal, gauge(u.MemPercent()))
 
 	return nameStyle.Render(name) + "\n" + cpuLine + "\n" + memLine + "\n\n"
 }

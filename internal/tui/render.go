@@ -54,6 +54,15 @@ func gauge(pct float64) string {
 	return "▕" + bar + "▏" + fmt.Sprintf(" %3.0f%%", pct)
 }
 
+// usedOfLimit renders "used / limit"; when the limit is unknown (no limit set)
+// it shows just the used value, since there is no ceiling to compare against.
+func usedOfLimit(used, limit string, hasLimit bool) string {
+	if hasLimit {
+		return used + " / " + limit
+	}
+	return used
+}
+
 // fmtCPU prints millicores the way kubectl top does, e.g. "1719m".
 func fmtCPU(milli int64) string { return fmt.Sprintf("%dm", milli) }
 
