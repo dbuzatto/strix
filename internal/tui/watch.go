@@ -1,5 +1,5 @@
 // Package tui renders the live `strix top --watch` dashboard: an htop-style
-// view that polls metrics and draws real-time sparklines in the alternate
+// view that polls metrics and draws real-time usage gauges in the alternate
 // screen, returning the terminal to the shell on quit.
 package tui
 
@@ -17,8 +17,8 @@ import (
 type FetchFunc func(context.Context) ([]k8s.Usage, error)
 
 const (
-	interval = 2 * time.Second
-	histLen  = 48
+	interval     = 2 * time.Second
+	fetchTimeout = 10 * time.Second
 )
 
 type tickMsg time.Time
@@ -31,8 +31,6 @@ type model struct {
 	title   string
 	fetch   FetchFunc
 	latest  []k8s.Usage
-	cpuHist map[string][]float64
-	memHist map[string][]float64
 	err     error
 	updated time.Time
 	w, h    int
@@ -40,25 +38,22 @@ type model struct {
 
 // Run launches the live dashboard and blocks until the user quits.
 func Run(title string, fetch FetchFunc) error {
-	m := model{
-		title:   title,
-		fetch:   fetch,
-		cpuHist: map[string][]float64{},
-		memHist: map[string][]float64{},
-	}
+	m := model{title: title, fetch: fetch}
 	_, err := tea.NewProgram(m, tea.WithAltScreen()).Run()
 	return err
 }
 
-func (m model) Init() tea.Cmd { return tea.Batch(m.fetchCmd(), tickCmd()) }
+func (m model) Init() tea.Cmd { return m.fetchCmd() }
 
 func tickCmd() tea.Cmd {
 	return tea.Tick(interval, func(t time.Time) tea.Msg { return tickMsg(t) })
 }
 
+// fetchCmd runs one fetch with a generous timeout that is independent of the
+// refresh interval, so a slow remote cluster doesn't race the next tick.
 func (m model) fetchCmd() tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), interval)
+		ctx, cancel := context.WithTimeout(context.Background(), fetchTimeout)
 		defer cancel()
 		u, err := m.fetch(ctx)
 		return dataMsg{usage: u, err: err}
@@ -75,37 +70,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
 	case tickMsg:
-		return m, tea.Batch(m.fetchCmd(), tickCmd())
+		return m, m.fetchCmd()
 	case dataMsg:
+		// Keep the last good sample on screen when a refresh fails, so a
+		// transient error doesn't blank the whole dashboard; just note it.
 		m.err = msg.err
 		if msg.err == nil {
 			m.latest = msg.usage
 			m.updated = time.Now()
-			m.record()
 		}
+		// Drive the next fetch off completion (not a fixed tick) so fetches
+		// never overlap, however slow the cluster is.
+		return m, tickCmd()
 	}
 	return m, nil
-}
-
-// record appends the latest sample to each row's history and drops rows that
-// have disappeared, so the history maps don't grow unbounded.
-func (m *model) record() {
-	seen := make(map[string]bool, len(m.latest))
-	for _, u := range m.latest {
-		k := key(u)
-		seen[k] = true
-		// Store percentages when a limit is known (so the sparkline shares the
-		// 0..100 scale of the gauge); otherwise store the raw value and let the
-		// sparkline auto-scale to its own window.
-		m.cpuHist[k] = push(m.cpuHist[k], histVal(u.CPUPercent(), float64(u.CPUUsed.MilliValue())))
-		m.memHist[k] = push(m.memHist[k], histVal(u.MemPercent(), float64(u.MemUsed.Value())))
-	}
-	for k := range m.cpuHist {
-		if !seen[k] {
-			delete(m.cpuHist, k)
-			delete(m.memHist, k)
-		}
-	}
 }
 
 func (m model) View() string {
@@ -118,8 +96,21 @@ func (m model) View() string {
 	b.WriteString(headerStyle.Render(" 🦉 strix top — "+m.title) + dimStyle.Render("   "+status+" · q to quit"))
 	b.WriteString("\n\n")
 
-	if m.err != nil {
+	// A hard failure with nothing to show: report it and stop.
+	if m.err != nil && len(m.latest) == 0 {
 		b.WriteString(errStyle.Render(m.err.Error()))
+		b.WriteString("\n")
+		return b.String()
+	}
+
+	// Connected but no rows yet: metrics-server may not have a sample yet, or
+	// the selector matched nothing.
+	if len(m.latest) == 0 {
+		if m.updated.IsZero() {
+			b.WriteString(dimStyle.Render("connecting to the cluster…"))
+		} else {
+			b.WriteString(dimStyle.Render("no usage to show — waiting for metrics, or nothing matched the selector"))
+		}
 		b.WriteString("\n")
 		return b.String()
 	}
@@ -130,6 +121,13 @@ func (m model) View() string {
 	}
 	for _, u := range rows {
 		b.WriteString(m.renderRow(u))
+	}
+
+	// A refresh failed but we still have the previous sample: keep showing it
+	// with a dim note rather than blanking the dashboard.
+	if m.err != nil {
+		b.WriteString(dimStyle.Render("last refresh failed: " + m.err.Error()))
+		b.WriteString("\n")
 	}
 	return b.String()
 }
@@ -143,36 +141,15 @@ func (m model) maxRows() int {
 }
 
 func (m model) renderRow(u k8s.Usage) string {
-	k := key(u)
 	name := u.Name
 	if u.Namespace != "" {
 		name = u.Namespace + "/" + u.Name
 	}
 
-	cpuLine := fmt.Sprintf("  %s %9s  %s  %s",
-		labelStyle.Render("CPU"), fmtCPU(u.CPUUsed.MilliValue()),
-		gauge(u.CPUPercent()), spark(m.cpuHist[k], u.CPUPercent()))
-	memLine := fmt.Sprintf("  %s %9s  %s  %s",
-		labelStyle.Render("MEM"), fmtMem(u.MemUsed.Value()),
-		gauge(u.MemPercent()), spark(m.memHist[k], u.MemPercent()))
+	cpuLine := fmt.Sprintf("  %s %9s  %s",
+		labelStyle.Render("CPU"), fmtCPU(u.CPUUsed.MilliValue()), gauge(u.CPUPercent()))
+	memLine := fmt.Sprintf("  %s %9s  %s",
+		labelStyle.Render("MEM"), fmtMem(u.MemUsed.Value()), gauge(u.MemPercent()))
 
 	return nameStyle.Render(name) + "\n" + cpuLine + "\n" + memLine + "\n\n"
-}
-
-func key(u k8s.Usage) string { return u.Namespace + "/" + u.Name }
-
-// histVal records the percentage when known, else the raw value.
-func histVal(pct, raw float64) float64 {
-	if pct >= 0 {
-		return pct
-	}
-	return raw
-}
-
-func push(s []float64, v float64) []float64 {
-	s = append(s, v)
-	if len(s) > histLen {
-		s = s[len(s)-histLen:]
-	}
-	return s
 }

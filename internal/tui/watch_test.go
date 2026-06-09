@@ -10,11 +10,7 @@ import (
 )
 
 func TestViewRenders(t *testing.T) {
-	var m tea.Model = model{
-		title:   "Nodes",
-		cpuHist: map[string][]float64{},
-		memHist: map[string][]float64{},
-	}
+	var m tea.Model = model{title: "Nodes"}
 	m, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 
 	sample := []k8s.Usage{{
@@ -24,8 +20,6 @@ func TestViewRenders(t *testing.T) {
 		MemUsed:  resource.MustParse("8Gi"),
 		MemTotal: resource.MustParse("16Gi"),
 	}}
-	// Two samples so the sparkline has history.
-	m, _ = m.Update(dataMsg{usage: sample})
 	m, _ = m.Update(dataMsg{usage: sample})
 
 	out := m.View()
@@ -34,14 +28,10 @@ func TestViewRenders(t *testing.T) {
 			t.Errorf("view missing %q in:\n%s", want, out)
 		}
 	}
-	// A sparkline block must be present somewhere.
-	if !strings.ContainsAny(out, string(sparkBlocks)) {
-		t.Errorf("expected a sparkline block in view:\n%s", out)
-	}
 }
 
 func TestQuitOnKey(t *testing.T) {
-	var m tea.Model = model{cpuHist: map[string][]float64{}, memHist: map[string][]float64{}}
+	var m tea.Model = model{}
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	if cmd == nil {
 		t.Fatal("expected a quit command on 'q'")

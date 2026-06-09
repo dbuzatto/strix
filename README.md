@@ -26,7 +26,7 @@ deployments.
 - [x] `strix analyze <kind/name>` — gather status + events + logs and explain
 - [x] AI backend: detect local `claude`; fall back to `ANTHROPIC_API_KEY` (API backend WIP)
 - [x] `strix top nodes|pods` — CPU/memory usage with gauges (metrics-server)
-- [x] `strix top --watch` — live dashboard with real-time sparklines (htop-like)
+- [x] `strix top --watch` — live dashboard with real-time usage gauges (htop-like)
 - [ ] `strix logs <pod> --ai`
 - [ ] `strix ctx` — switch context
 

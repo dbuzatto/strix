@@ -22,9 +22,6 @@ var (
 
 const gaugeWidth = 10
 
-// sparkBlocks are eight increasing heights used to draw a sparkline.
-var sparkBlocks = []rune("▁▂▃▄▅▆▇█")
-
 // styleFor picks a color by utilization: green < 50% < yellow < 80% < red.
 // A negative percent (unknown total, e.g. pods) falls back to blue.
 func styleFor(pct float64) lipgloss.Style {
@@ -55,43 +52,6 @@ func gauge(pct float64) string {
 	bar := styleFor(pct).Render(strings.Repeat("█", filled)) +
 		dimStyle.Render(strings.Repeat("·", gaugeWidth-filled))
 	return "▕" + bar + "▏" + fmt.Sprintf(" %3.0f%%", pct)
-}
-
-// spark renders the value history as a colored sparkline scaled between the
-// window's own min and max, so it reads as a trend graph (the gauge already
-// shows the absolute level). Steady usage shows as a flat low line. Color
-// follows the current utilization.
-func spark(vals []float64, pct float64) string {
-	if len(vals) == 0 {
-		return ""
-	}
-
-	lo, hi := vals[0], vals[0]
-	for _, v := range vals {
-		if v < lo {
-			lo = v
-		}
-		if v > hi {
-			hi = v
-		}
-	}
-	span := hi - lo
-
-	var sb strings.Builder
-	for _, v := range vals {
-		idx := 0
-		if span > 0 {
-			idx = int((v - lo) / span * float64(len(sparkBlocks)-1))
-		}
-		if idx < 0 {
-			idx = 0
-		}
-		if idx >= len(sparkBlocks) {
-			idx = len(sparkBlocks) - 1
-		}
-		sb.WriteRune(sparkBlocks[idx])
-	}
-	return styleFor(pct).Render(sb.String())
 }
 
 // fmtCPU prints millicores the way kubectl top does, e.g. "1719m".
