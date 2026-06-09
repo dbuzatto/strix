@@ -8,6 +8,7 @@
   <p>
     <a href="https://github.com/dbuzatto/strix/actions/workflows/ci.yml"><img src="https://github.com/dbuzatto/strix/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
     <a href="https://github.com/dbuzatto/strix/releases/latest"><img src="https://img.shields.io/github/v/release/dbuzatto/strix" alt="Latest release" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT" /></a>
   </p>
 </div>
 
@@ -135,3 +136,15 @@ api_key: ""           # Anthropic API key for the 'api' backend (keep private)
 Precedence is **flag > config file > built-in default**. The path honors
 `$STRIX_CONFIG` and `$XDG_CONFIG_HOME`. The file is written `0600` since it may
 hold your API key; leave `api_key` empty to use `ANTHROPIC_API_KEY` instead.
+
+## Partnerships & Contact
+
+Strix is open to collaboration. If you're interested in partnering, sponsoring,
+integrating Strix into your tooling, or just want to talk about where it's
+heading, reach out — **diogobuzattoo@gmail.com**. Bug reports and feature ideas
+are welcome as GitHub issues.
+
+## License
+
+Strix is released under the [MIT License](LICENSE) — free to use, modify and
+distribute, with attribution. © 2026 Diogo Buzatto.
