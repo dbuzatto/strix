@@ -14,30 +14,34 @@
 
 ---
 
-Strix is a terminal-first **analyzer** for Kubernetes. It is not a resource
-browser — listing pods is what `kubectl` and `k9s` are for. Strix gathers a
-resource's status, events and logs and explains **what is wrong and how to fix
-it**. By default it uses the **Claude Code already installed on your machine**
-(no extra API key to manage), and falls back to the **Anthropic API** when you
-configure a key.
+Where `kubectl` and `k9s` help you **browse** a cluster, Strix tells you **what
+is wrong and how to fix it**. It gathers a resource's status, events and logs
+and hands you a root-cause analysis — right in the terminal. It runs on the
+**Claude Code already installed on your machine** (no extra API key to manage),
+or the **Anthropic API** when you configure a key.
 
-## Status
+## Demo
 
-Early development. Current milestone: AI root-cause analysis of pods and
-deployments.
+<div align="center">
+  <img src="assets/demo/triage.png" alt="strix triage — a prioritized report of everything on fire in a namespace" width="760" />
+  <p><em><code>strix triage</code> — one prioritized report of everything on fire in a namespace.</em></p>
+  <img src="assets/demo/analyze.png" alt="strix analyze — AI root-cause analysis of a workload" width="760" />
+  <p><em><code>strix analyze</code> — AI root-cause analysis of a single workload.</em></p>
+</div>
 
-## Roadmap
+## Features
 
-- [x] Auto-detect kubeconfig (`--kubeconfig` → `$KUBECONFIG` → `~/.kube/config`)
-- [x] `strix analyze <kind/name>` — gather status + events + logs and explain
-- [x] Analyze pods, deployments, statefulsets, daemonsets, jobs, cronjobs, nodes
-- [x] `strix triage` — sweep a namespace and report what is on fire
-- [x] AI backend: local `claude` by default, or the Anthropic API via `api_key`
-- [x] `strix top nodes|pods` — CPU/memory usage with gauges (metrics-server)
-- [x] `strix top --watch` — live dashboard with real-time usage gauges (htop-like)
-- [x] Cross-platform releases + Homebrew tap (`brew install dbuzatto/tap/strix`)
-- [ ] `strix logs <pod> --ai`
-- [ ] `strix ctx` — switch context
+- **AI root-cause analysis** — `strix analyze <kind/name>` gathers status,
+  events and logs for pods, deployments, statefulsets, daemonsets, jobs,
+  cronjobs and nodes, then explains the cause and the fix.
+- **Namespace triage** — `strix triage` sweeps a namespace (or every namespace)
+  and produces a single prioritized report grouping related symptoms.
+- **Live resource usage** — `strix top` shows node and pod CPU/memory with
+  htop-style gauges, including a real-time `--watch` dashboard.
+- **Bring your own AI** — uses the local Claude Code by default; falls back to
+  the Anthropic API with a key. No hosted service in the middle.
+- **Terminal-native** — styled Markdown in an interactive terminal; clean raw
+  output when piped or saved to a file.
 
 ## Install
 
@@ -64,6 +68,18 @@ go build -o strix .
 ```
 
 Check your version with `strix version`.
+
+## Try it
+
+On a throwaway cluster (kind, minikube, k3d), apply the demo fixture — fictional
+names, deliberately broken workloads — and point Strix at it:
+
+```bash
+kubectl apply -f examples/demo.yaml
+strix triage -n strix-demo
+strix analyze deployment/payments-api -n strix-demo
+kubectl delete -f examples/demo.yaml      # clean up
+```
 
 ## Usage
 
