@@ -72,6 +72,11 @@ func buildInstruction(prompt, lang string) string {
 	if prompt != "" {
 		instruction = "You are a Kubernetes expert. Using the evidence provided on stdin, answer the following request:\n\n" + prompt
 	}
+	return withLang(instruction, lang)
+}
+
+// withLang appends a language directive to an instruction when lang is set.
+func withLang(instruction, lang string) string {
 	if lang != "" {
 		instruction += "\n\nWrite your entire answer in this language: " + lang + "."
 	}

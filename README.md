@@ -31,6 +31,7 @@ deployments.
 - [x] Auto-detect kubeconfig (`--kubeconfig` → `$KUBECONFIG` → `~/.kube/config`)
 - [x] `strix analyze <kind/name>` — gather status + events + logs and explain
 - [x] Analyze pods, deployments, statefulsets, daemonsets, jobs, cronjobs, nodes
+- [x] `strix triage` — sweep a namespace and report what is on fire
 - [x] AI backend: local `claude` by default, or the Anthropic API via `api_key`
 - [x] `strix top nodes|pods` — CPU/memory usage with gauges (metrics-server)
 - [x] `strix top --watch` — live dashboard with real-time usage gauges (htop-like)
@@ -92,6 +93,23 @@ strix analyze deployment/api -m opus           # pick the Claude model
 On an interactive terminal the AI's Markdown answer is rendered to styled ANSI
 (bold, colors, bullets). When output is piped or written with `-o`, raw Markdown
 is emitted so files and downstream tools stay clean.
+
+### Triage a whole namespace
+
+When you don't yet know *what* is broken, let Strix find it:
+
+```bash
+strix triage -n prod            # scan one namespace and rank what is on fire
+strix triage -A                 # sweep every namespace
+strix triage -n prod --raw      # print the raw findings, skip the AI
+strix triage -n prod --lang pt  # report in Portuguese
+```
+
+`triage` sweeps for unhealthy pods, workloads below their desired replicas,
+failed jobs and recent warning events, then produces a single prioritized
+report grouping related symptoms. It gathers only status and events (no logs),
+so it stays fast and cheap; drill into anything it flags with
+`strix analyze <kind/name>`.
 
 ### AI backend
 
