@@ -25,6 +25,7 @@ deployments.
 
 - [x] Auto-detect kubeconfig (`--kubeconfig` → `$KUBECONFIG` → `~/.kube/config`)
 - [x] `strix analyze <kind/name>` — gather status + events + logs and explain
+- [x] Analyze pods, deployments, statefulsets, daemonsets, jobs, cronjobs, nodes
 - [x] AI backend: local `claude` by default, or the Anthropic API via `api_key`
 - [x] `strix top nodes|pods` — CPU/memory usage with gauges (metrics-server)
 - [x] `strix top --watch` — live dashboard with real-time usage gauges (htop-like)
@@ -42,6 +43,9 @@ go build -o strix .
 ```bash
 strix analyze pod/api-7d9f -n prod              # root-cause analysis of a pod
 strix analyze deployment/api -n prod            # analyze a deployment + its pods
+strix analyze statefulset/postgres -n data      # statefulset + its pods
+strix analyze cronjob/nightly-backup -n ops     # cronjob + its most recent runs
+strix analyze node/worker-3                     # node pressure, taints & scheduling
 strix analyze deployment/api -o report.md       # save the report to a file
 strix analyze pod/api-7d9f --raw                # print gathered evidence, skip the AI
 strix analyze pod/api-7d9f --lang pt            # answer in Portuguese

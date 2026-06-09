@@ -37,11 +37,14 @@ var analyzeCmd = &cobra.Command{
 	Short: "AI-powered root-cause analysis of a resource",
 	Long: `Gather a resource's status, events and logs and explain what is wrong.
 
-Supported kinds: pod, deployment.
+Supported kinds: pod, deployment, statefulset, daemonset, job, cronjob, node.
 
 Examples:
   strix analyze pod/api-7d9f -n prod
   strix analyze deployment/api -n prod -o report.md
+  strix analyze statefulset/postgres -n data
+  strix analyze cronjob/nightly-backup -n ops
+  strix analyze node/worker-3                            # node pressure & scheduling
   strix analyze pod/api-7d9f --raw                      # print the evidence, skip the AI
   strix analyze pod/api-7d9f --lang pt                  # answer in Portuguese
   strix analyze pod/api-7d9f --prompt "por que reinicia?"
