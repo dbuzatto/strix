@@ -1,7 +1,7 @@
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.png" />
-    <img src="assets/logo-light.png" alt="Strix" width="200" />
+    <img src="assets/logo-light.png" alt="Strix" width="480" />
   </picture>
   <h1>Strix</h1>
   <p><em>An owl that watches your Kubernetes cluster.</em></p>
