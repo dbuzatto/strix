@@ -1,0 +1,79 @@
+# GoReleaser configuration — builds cross-platform binaries, publishes a GitHub
+# Release with checksums, and (when a tap token is set) a Homebrew formula.
+# Run a dry run locally with: goreleaser release --snapshot --clean
+version: 2
+
+project_name: strix
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: strix
+    main: .
+    binary: strix
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/dbuzatto/strix/cmd.version={{ .Version }}
+      - -X github.com/dbuzatto/strix/cmd.commit={{ .Commit }}
+      - -X github.com/dbuzatto/strix/cmd.date={{ .CommitDate }}
+
+archives:
+  - id: strix
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+
+# Homebrew tap (cask — Homebrew's path for pre-built binaries). Auto-skips
+# unless HOMEBREW_TAP_GITHUB_TOKEN is provided, so the very first release can
+# ship binaries before the tap repo/secret exist. To enable: create the repo
+# github.com/dbuzatto/homebrew-tap and add a PAT (repo scope) as the
+# HOMEBREW_TAP_GITHUB_TOKEN secret.
+homebrew_casks:
+  - repository:
+      owner: dbuzatto
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    skip_upload: '{{ if eq .Env.HOMEBREW_TAP_GITHUB_TOKEN "" }}true{{ else }}false{{ end }}'
+    homepage: "https://github.com/dbuzatto/strix"
+    description: "An owl that watches your Kubernetes cluster — AI-powered analysis"
+    # Strip the quarantine attribute so the unsigned binary runs without a
+    # Gatekeeper prompt on macOS.
+    hooks:
+      post:
+        install: |
+          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/strix"]
+          end
+
+release:
+  prerelease: auto
+  footer: |
+    ---
+    Install: see the README for Homebrew, `go install`, or direct downloads.

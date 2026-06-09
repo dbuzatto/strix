@@ -5,6 +5,10 @@
   </picture>
   <h1>Strix</h1>
   <p><em>An owl that watches your Kubernetes cluster.</em></p>
+  <p>
+    <a href="https://github.com/dbuzatto/strix/actions/workflows/ci.yml"><img src="https://github.com/dbuzatto/strix/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+    <a href="https://github.com/dbuzatto/strix/releases/latest"><img src="https://img.shields.io/github/v/release/dbuzatto/strix" alt="Latest release" /></a>
+  </p>
 </div>
 
 ---
@@ -29,14 +33,35 @@ deployments.
 - [x] AI backend: local `claude` by default, or the Anthropic API via `api_key`
 - [x] `strix top nodes|pods` — CPU/memory usage with gauges (metrics-server)
 - [x] `strix top --watch` — live dashboard with real-time usage gauges (htop-like)
+- [x] Cross-platform releases + Homebrew tap (`brew install dbuzatto/tap/strix`)
 - [ ] `strix logs <pod> --ai`
 - [ ] `strix ctx` — switch context
 
-## Build
+## Install
+
+**Homebrew** (macOS and Linux):
+
+```bash
+brew install dbuzatto/tap/strix
+```
+
+**Go** (any platform with a Go toolchain):
+
+```bash
+go install github.com/dbuzatto/strix@latest
+```
+
+**Direct download** — grab a prebuilt binary for your OS/arch from the
+[releases page](https://github.com/dbuzatto/strix/releases), extract it and put
+`strix` on your `PATH`.
+
+**From source:**
 
 ```bash
 go build -o strix .
 ```
+
+Check your version with `strix version`.
 
 ## Usage
 
