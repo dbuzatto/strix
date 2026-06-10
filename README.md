@@ -45,12 +45,6 @@ or the **Anthropic API** when you configure a key.
 
 ## Install
 
-**Homebrew** (macOS and Linux):
-
-```bash
-brew install dbuzatto/tap/strix
-```
-
 **Debian / Ubuntu** (`.deb`) — download the package for your architecture from
 the [releases page](https://github.com/dbuzatto/strix/releases) and install it:
 
@@ -71,8 +65,14 @@ go install github.com/dbuzatto/strix@latest
 ```
 
 **Direct download** — grab a prebuilt binary for your OS/arch from the
-[releases page](https://github.com/dbuzatto/strix/releases), extract it and put
-`strix` on your `PATH`.
+[releases page](https://github.com/dbuzatto/strix/releases), then extract it and
+put `strix` on your `PATH`:
+
+```bash
+# Linux (amd64) — adjust the version/OS/arch for your machine
+curl -sL https://github.com/dbuzatto/strix/releases/latest/download/strix_<version>_linux_amd64.tar.gz | tar xz
+sudo mv strix /usr/local/bin/
+```
 
 **From source:**
 

@@ -1,5 +1,5 @@
-# GoReleaser configuration — builds cross-platform binaries, publishes a GitHub
-# Release with checksums, and (when a tap token is set) a Homebrew formula.
+# GoReleaser configuration — builds cross-platform binaries and Linux packages
+# (.deb/.rpm/.apk), and publishes a GitHub Release with checksums.
 # Run a dry run locally with: goreleaser release --snapshot --clean
 version: 2
 
@@ -40,7 +40,7 @@ archives:
 
 # Linux system packages: a .deb (Debian/Ubuntu), .rpm (Fedora/RHEL) and .apk
 # (Alpine) for each release, so users can `sudo apt install ./strix_*.deb`
-# without a Go toolchain or Homebrew.
+# without needing a Go toolchain.
 nfpms:
   - id: strix
     package_name: strix
@@ -70,30 +70,8 @@ changelog:
       - "^chore:"
       - "^ci:"
 
-# Homebrew tap (cask — Homebrew's path for pre-built binaries). Auto-skips
-# unless HOMEBREW_TAP_GITHUB_TOKEN is provided, so the very first release can
-# ship binaries before the tap repo/secret exist. To enable: create the repo
-# github.com/dbuzatto/homebrew-tap and add a PAT (repo scope) as the
-# HOMEBREW_TAP_GITHUB_TOKEN secret.
-homebrew_casks:
-  - repository:
-      owner: dbuzatto
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    skip_upload: '{{ if eq .Env.HOMEBREW_TAP_GITHUB_TOKEN "" }}true{{ else }}false{{ end }}'
-    homepage: "https://github.com/dbuzatto/strix"
-    description: "An owl that watches your Kubernetes cluster — AI-powered analysis"
-    # Strip the quarantine attribute so the unsigned binary runs without a
-    # Gatekeeper prompt on macOS.
-    hooks:
-      post:
-        install: |
-          if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/strix"]
-          end
-
 release:
   prerelease: auto
   footer: |
     ---
-    Install: see the README for Homebrew, `go install`, or direct downloads.
+    Install: see the README for `.deb`/`.rpm` packages, `go install`, or direct downloads.
