@@ -369,6 +369,12 @@ func (c *Client) writeLogs(ctx context.Context, b *strings.Builder, pod *corev1.
 	}
 }
 
+// maxLogBytes caps how much of each container log enters the evidence. Logs
+// dominate prompt size and a single verbose JSON line can be kilobytes, so even
+// with a line-based --tail the total can overflow the model's context. We keep
+// only the most recent maxLogBytes — the tail is where the root cause lives.
+const maxLogBytes = 16 * 1024
+
 func (c *Client) dumpLog(ctx context.Context, b *strings.Builder, pod *corev1.Pod, container string, tail int64, previous bool) {
 	req := c.Clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{
 		Container: container,
@@ -388,7 +394,18 @@ func (c *Client) dumpLog(ctx context.Context, b *strings.Builder, pod *corev1.Po
 	if previous {
 		label = "previous logs"
 	}
-	fmt.Fprintf(b, "```\n%s of %s/%s:\n%s\n```\n", label, pod.Name, container, strings.TrimSpace(string(data)))
+	text := strings.TrimSpace(string(data))
+	note := ""
+	if len(text) > maxLogBytes {
+		// Keep the tail (most recent, most relevant) and trim forward to the
+		// next line boundary so the dump doesn't start mid-line.
+		text = text[len(text)-maxLogBytes:]
+		if i := strings.IndexByte(text, '\n'); i >= 0 {
+			text = text[i+1:]
+		}
+		note = fmt.Sprintf(" (truncated to last ~%dKB)", maxLogBytes/1024)
+	}
+	fmt.Fprintf(b, "```\n%s of %s/%s%s:\n%s\n```\n", label, pod.Name, container, note, text)
 }
 
 // --- small helpers ---

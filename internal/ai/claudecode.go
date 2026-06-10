@@ -3,6 +3,7 @@ package ai
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -41,11 +42,26 @@ func (c *ClaudeCode) Analyze(ctx context.Context, instruction, evidence string) 
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		if msg == "" {
-			msg = err.Error()
+		// A timeout is the most common failure on large evidence; name it
+		// clearly so the user knows to lower --tail or rerun.
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return "", fmt.Errorf("claude code timed out — try a smaller --tail, or rerun")
 		}
-		return "", fmt.Errorf("claude code failed: %s", msg)
+		// Claude reports some failures (usage limits, auth, API errors) on
+		// stdout rather than stderr, so surface both before the bare exit
+		// status — otherwise the user just sees "exit status 1".
+		detail := strings.TrimSpace(stderr.String())
+		if detail == "" {
+			detail = strings.TrimSpace(stdout.String())
+		}
+		if detail == "" {
+			detail = err.Error()
+		}
+		// Oversized evidence is recoverable: point the user at the knob.
+		if strings.Contains(strings.ToLower(detail), "too long") {
+			return "", fmt.Errorf("claude code failed: %s — the evidence is too large for the model; rerun with a smaller --tail (e.g. --tail 20)", detail)
+		}
+		return "", fmt.Errorf("claude code failed: %s", detail)
 	}
 
 	return strings.TrimSpace(stdout.String()), nil
