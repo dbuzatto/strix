@@ -184,6 +184,17 @@ Precedence is **flag > config file > built-in default**. The path honors
 `$STRIX_CONFIG` and `$XDG_CONFIG_HOME`. The file is written `0600` since it may
 hold your API key; leave `api_key` empty to use `ANTHROPIC_API_KEY` instead.
 
+## Support
+
+If Strix saves you time, you can support its development. Contributions are
+entirely optional and help keep the project moving.
+
+**Pix** (Brazil) — random key, copy and paste into your bank app:
+
+```
+b97729f3-534f-427c-a820-b3751c053538
+```
+
 ## Partnerships & Contact
 
 Strix is open to collaboration. If you're interested in partnering, sponsoring,
