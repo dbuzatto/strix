@@ -193,6 +193,14 @@ func (c *Client) writePod(ctx context.Context, b *strings.Builder, pod *corev1.P
 		fmt.Fprintf(b, "- Reason: %s %s\n", pod.Status.Reason, pod.Status.Message)
 	}
 
+	for _, cs := range pod.Status.InitContainerStatuses {
+		fmt.Fprintf(b, "- Init container %s: ready=%t restarts=%d state=%s\n",
+			cs.Name, cs.Ready, cs.RestartCount, containerState(cs.State))
+		if cs.LastTerminationState.Terminated != nil {
+			t := cs.LastTerminationState.Terminated
+			fmt.Fprintf(b, "  last termination: reason=%s exit=%d signal=%d\n", t.Reason, t.ExitCode, t.Signal)
+		}
+	}
 	for _, cs := range pod.Status.ContainerStatuses {
 		fmt.Fprintf(b, "- Container %s: ready=%t restarts=%d state=%s\n",
 			cs.Name, cs.Ready, cs.RestartCount, containerState(cs.State))
@@ -344,11 +352,16 @@ func (c *Client) writeEvents(ctx context.Context, b *strings.Builder, ns, name s
 }
 
 func (c *Client) writeLogs(ctx context.Context, b *strings.Builder, pod *corev1.Pod, tail int64) {
-	for _, ct := range pod.Spec.Containers {
+	// Init containers come first: when one of them is stuck the main containers
+	// never start, so the init logs are the only place the cause can be.
+	containers := make([]corev1.Container, 0, len(pod.Spec.InitContainers)+len(pod.Spec.Containers))
+	containers = append(containers, pod.Spec.InitContainers...)
+	containers = append(containers, pod.Spec.Containers...)
+	for _, ct := range containers {
 		// Current logs.
 		c.dumpLog(ctx, b, pod, ct.Name, tail, false)
 		// If the container has restarted, the previous logs usually hold the cause.
-		for _, cs := range pod.Status.ContainerStatuses {
+		for _, cs := range allContainerStatuses(pod) {
 			if cs.Name == ct.Name && cs.RestartCount > 0 {
 				c.dumpLog(ctx, b, pod, ct.Name, tail, true)
 			}
@@ -379,6 +392,15 @@ func (c *Client) dumpLog(ctx context.Context, b *strings.Builder, pod *corev1.Po
 }
 
 // --- small helpers ---
+
+// allContainerStatuses returns the pod's init and regular container statuses
+// as one slice, so health checks never overlook a failing init container.
+func allContainerStatuses(p *corev1.Pod) []corev1.ContainerStatus {
+	out := make([]corev1.ContainerStatus, 0, len(p.Status.InitContainerStatuses)+len(p.Status.ContainerStatuses))
+	out = append(out, p.Status.InitContainerStatuses...)
+	out = append(out, p.Status.ContainerStatuses...)
+	return out
+}
 
 func age(t time.Time) string { return duration.HumanDuration(time.Since(t)) }
 

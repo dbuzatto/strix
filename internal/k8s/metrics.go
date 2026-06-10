@@ -9,7 +9,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 // Usage is a CPU/memory usage sample for a node or pod, with totals where known.
@@ -124,7 +123,12 @@ func (c *Client) DeploymentSelector(ctx context.Context, ns, name string) (strin
 	if err != nil {
 		return "", fmt.Errorf("getting deployment: %w", err)
 	}
-	return labels.Set(dep.Spec.Selector.MatchLabels).AsSelector().String(), nil
+	// LabelSelectorAsSelector handles matchExpressions too, not just matchLabels.
+	sel, err := metav1.LabelSelectorAsSelector(dep.Spec.Selector)
+	if err != nil {
+		return "", fmt.Errorf("building selector for deployment %s: %w", name, err)
+	}
+	return sel.String(), nil
 }
 
 // sumLimit sums a resource limit across all containers. ok is false when any

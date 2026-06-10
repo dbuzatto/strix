@@ -137,9 +137,11 @@ func (c *Client) Triage(ctx context.Context, ns string, allNS bool) (TriageRepor
 // podIssue returns a one-line description of why a pod is unhealthy, or "" when
 // it looks fine. Transient states (ContainerCreating, PodInitializing) are
 // ignored; stuck-but-Pending pods are surfaced via warning events instead.
+// Init containers are checked too: a pod stuck in Init:CrashLoopBackOff never
+// reaches its main containers, so they would otherwise look innocently empty.
 func podIssue(p *corev1.Pod) string {
 	var problems []string
-	for _, cs := range p.Status.ContainerStatuses {
+	for _, cs := range allContainerStatuses(p) {
 		if w := cs.State.Waiting; w != nil && w.Reason != "" && w.Reason != "ContainerCreating" && w.Reason != "PodInitializing" {
 			problems = append(problems, fmt.Sprintf("%s Waiting(%s)", cs.Name, w.Reason))
 		}

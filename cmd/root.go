@@ -18,9 +18,11 @@ var rootCmd = &cobra.Command{
 	Short: "An owl that watches your Kubernetes cluster",
 	Long: `Strix is a CLI for Kubernetes with AI-powered analysis.
 
-It connects to your cluster using the same kubeconfig rules as kubectl,
-inspects resources, and (soon) explains what is going wrong using the
-Claude Code already installed on your machine — no extra API key required.`,
+It connects to your cluster using the same kubeconfig rules as kubectl and
+explains what is going wrong: root-cause analysis of a resource (analyze),
+a prioritized sweep of a namespace (triage), and live resource usage (top).
+AI runs on the Claude Code already installed on your machine — no extra API
+key required — or the Anthropic API when you configure a key.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
