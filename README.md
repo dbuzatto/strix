@@ -14,7 +14,7 @@
 
 ---
 
-Where `kubectl` and `k9s` help you **browse** a cluster, Strix tells you **what
+Where `kubectl` helps you **browse** a cluster, Strix tells you **what
 is wrong and how to fix it**. It gathers a resource's status, events and logs
 and hands you a root-cause analysis — right in the terminal. It runs on the
 **Claude Code already installed on your machine** (no extra API key to manage),
