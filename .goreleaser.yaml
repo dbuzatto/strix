@@ -38,6 +38,26 @@ archives:
     files:
       - README.md
 
+# Linux system packages: a .deb (Debian/Ubuntu), .rpm (Fedora/RHEL) and .apk
+# (Alpine) for each release, so users can `sudo apt install ./strix_*.deb`
+# without a Go toolchain or Homebrew.
+nfpms:
+  - id: strix
+    package_name: strix
+    vendor: Diogo Buzatto
+    homepage: "https://github.com/dbuzatto/strix"
+    maintainer: Diogo Buzatto <diogobuzattoo@gmail.com>
+    description: |-
+      Terminal-first AI analyzer for Kubernetes.
+      Strix tells you what is broken and how to fix it, using the Claude Code
+      already on your machine or the Anthropic API.
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+
 checksum:
   name_template: "checksums.txt"
 

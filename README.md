@@ -51,6 +51,19 @@ or the **Anthropic API** when you configure a key.
 brew install dbuzatto/tap/strix
 ```
 
+**Debian / Ubuntu** (`.deb`) — download the package for your architecture from
+the [releases page](https://github.com/dbuzatto/strix/releases) and install it:
+
+```bash
+sudo apt install ./strix_*_linux_amd64.deb
+```
+
+**Fedora / RHEL** (`.rpm`):
+
+```bash
+sudo dnf install ./strix_*_linux_amd64.rpm
+```
+
 **Go** (any platform with a Go toolchain):
 
 ```bash
