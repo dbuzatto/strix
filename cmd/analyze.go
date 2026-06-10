@@ -33,7 +33,7 @@ Structure your answer as:
 Be direct and do not restate the raw evidence.`
 
 var analyzeCmd = &cobra.Command{
-	Use:   "analyze <kind/name>",
+	Use:   "analyze <kind/name> [question]",
 	Short: "AI-powered root-cause analysis of a resource",
 	Long: `Gather a resource's status, events and logs and explain what is wrong.
 
@@ -41,15 +41,15 @@ Supported kinds: pod, deployment, statefulset, daemonset, job, cronjob, node.
 
 Examples:
   strix analyze pod/api-7d9f -n prod
+  strix analyze pod/api-7d9f "por que ele reinicia?"    # ask your own question
   strix analyze deployment/api -n prod -o report.md
   strix analyze statefulset/postgres -n data
   strix analyze cronjob/nightly-backup -n ops
   strix analyze node/worker-3                            # node pressure & scheduling
   strix analyze pod/api-7d9f --raw                      # print the evidence, skip the AI
   strix analyze pod/api-7d9f --lang pt                  # answer in Portuguese
-  strix analyze pod/api-7d9f --prompt "por que reinicia?"
   strix analyze deployment/api -m opus                 # pick the Claude model`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.RangeArgs(1, 2),
 	RunE: runAnalyze,
 }
 
@@ -87,6 +87,13 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	ref, err := k8s.ParseRef(args[0])
 	if err != nil {
 		return err
+	}
+
+	// A free-form question may come as the second argument; --prompt wins
+	// when both are given.
+	prompt := flagAnalyzePrompt
+	if prompt == "" && len(args) == 2 {
+		prompt = args[1]
 	}
 
 	// Resolve effective settings: an explicit flag wins, otherwise the config
@@ -139,7 +146,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		aiCtx, cancelAI := context.WithTimeout(cmd.Context(), 3*time.Minute)
 		defer cancelAI()
 
-		output, err = provider.Analyze(aiCtx, buildInstruction(flagAnalyzePrompt, lang), evidence)
+		output, err = provider.Analyze(aiCtx, buildInstruction(prompt, lang), evidence)
 		if err != nil {
 			return err
 		}

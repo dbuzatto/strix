@@ -43,3 +43,24 @@ func TestParseRef(t *testing.T) {
 		}
 	}
 }
+
+func TestTruncateTail(t *testing.T) {
+	// Short input passes through untouched.
+	if got, trunc := truncateTail("a\nb\nc", 100); got != "a\nb\nc" || trunc {
+		t.Fatalf("short input: got %q trunc=%v", got, trunc)
+	}
+	// Long input keeps the tail and starts at a line boundary.
+	text := "DROPPED line one\nkeep two\nkeep three"
+	got, trunc := truncateTail(text, len("e\nkeep two\nkeep three"))
+	if !trunc {
+		t.Fatal("expected truncation")
+	}
+	if got != "keep two\nkeep three" {
+		t.Fatalf("got %q, want tail starting at line boundary", got)
+	}
+	// A single huge line (no newline in the kept window) is kept as a slice.
+	got, trunc = truncateTail("xxxxxxxxxxyyyyy", 5)
+	if !trunc || got != "yyyyy" {
+		t.Fatalf("single line: got %q trunc=%v", got, trunc)
+	}
+}

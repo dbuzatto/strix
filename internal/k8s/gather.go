@@ -168,7 +168,13 @@ func (c *Client) writeDaemonSet(ctx context.Context, b *strings.Builder, ds *app
 	c.writeManagedPods(ctx, b, ds.Namespace, ds.Spec.Selector, tail)
 }
 
-// writeManagedPods lists and dumps the pods matched by a workload's selector.
+// maxManagedPods caps how many pods of a workload are dumped in full (status,
+// events, logs). Large deployments would otherwise overflow the model context;
+// unhealthy pods are kept first since they carry the signal.
+const maxManagedPods = 5
+
+// writeManagedPods lists and dumps the pods matched by a workload's selector,
+// unhealthy first, capped at maxManagedPods.
 func (c *Client) writeManagedPods(ctx context.Context, b *strings.Builder, ns string, selector *metav1.LabelSelector, tail int64) {
 	sel, err := metav1.LabelSelectorAsSelector(selector)
 	if err != nil {
@@ -180,9 +186,34 @@ func (c *Client) writeManagedPods(ctx context.Context, b *strings.Builder, ns st
 		fmt.Fprintf(b, "Could not list managed pods: %v\n", err)
 		return
 	}
-	fmt.Fprintf(b, "## Managed pods (%d)\n\n", len(pods.Items))
+
+	// Partition unhealthy pods to the front: when the list is capped, the
+	// failing pods are the ones whose evidence matters.
+	var sickPods, healthyPods []corev1.Pod
 	for i := range pods.Items {
-		c.writePod(ctx, b, &pods.Items[i], tail)
+		if podIssue(&pods.Items[i]) != "" {
+			sickPods = append(sickPods, pods.Items[i])
+		} else {
+			healthyPods = append(healthyPods, pods.Items[i])
+		}
+	}
+	items := append(sickPods, healthyPods...)
+	sick := len(sickPods)
+
+	shown := len(items)
+	if shown > maxManagedPods {
+		shown = maxManagedPods
+	}
+	if shown < len(items) {
+		fmt.Fprintf(b, "## Managed pods (%d total, %d unhealthy; showing %d, unhealthy first)\n\n", len(items), sick, shown)
+	} else {
+		fmt.Fprintf(b, "## Managed pods (%d)\n\n", len(items))
+	}
+	for i := 0; i < shown; i++ {
+		c.writePod(ctx, b, &items[i], tail)
+	}
+	if shown < len(items) {
+		fmt.Fprintf(b, "…and %d more pods omitted to keep the evidence compact.\n\n", len(items)-shown)
 	}
 }
 
@@ -394,18 +425,26 @@ func (c *Client) dumpLog(ctx context.Context, b *strings.Builder, pod *corev1.Po
 	if previous {
 		label = "previous logs"
 	}
-	text := strings.TrimSpace(string(data))
+	text, truncated := truncateTail(strings.TrimSpace(string(data)), maxLogBytes)
 	note := ""
-	if len(text) > maxLogBytes {
-		// Keep the tail (most recent, most relevant) and trim forward to the
-		// next line boundary so the dump doesn't start mid-line.
-		text = text[len(text)-maxLogBytes:]
-		if i := strings.IndexByte(text, '\n'); i >= 0 {
-			text = text[i+1:]
-		}
+	if truncated {
 		note = fmt.Sprintf(" (truncated to last ~%dKB)", maxLogBytes/1024)
 	}
 	fmt.Fprintf(b, "```\n%s of %s/%s%s:\n%s\n```\n", label, pod.Name, container, note, text)
+}
+
+// truncateTail keeps at most the last max bytes of text, trimming forward to
+// the next line boundary so the result doesn't start mid-line. The bool
+// reports whether anything was dropped.
+func truncateTail(text string, max int) (string, bool) {
+	if len(text) <= max {
+		return text, false
+	}
+	text = text[len(text)-max:]
+	if i := strings.IndexByte(text, '\n'); i >= 0 {
+		text = text[i+1:]
+	}
+	return text, true
 }
 
 // --- small helpers ---
