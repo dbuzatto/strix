@@ -72,3 +72,102 @@ spec:
         - name: migrate
           image: busybox:1.36
           command: ["sh", "-c", "echo 'running migration'; sleep 2; echo 'migration failed: schema lock timeout'; exit 1"]
+---
+# Service whose selector matches no pods -> "Selector matches 0 pods".
+#   strix analyze service/orphan-svc -n strix-demo
+apiVersion: v1
+kind: Service
+metadata:
+  name: orphan-svc
+  namespace: strix-demo
+spec:
+  selector:
+    app: ghost
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+# Service backing the crashlooping payments-api -> pods match but none Ready,
+# so the Service has zero ready endpoints.
+#   strix analyze service/payments-api -n strix-demo
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments-api
+  namespace: strix-demo
+spec:
+  selector:
+    app: payments-api
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+# References a Secret and a ConfigMap that don't exist -> the pod is stuck in
+# CreateContainerConfigError, with nothing in the logs to explain it.
+#   strix analyze deployment/report-gen -n strix-demo
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-gen
+  namespace: strix-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: report-gen
+  template:
+    metadata:
+      labels:
+        app: report-gen
+    spec:
+      containers:
+        - name: app
+          image: busybox:1.36
+          command: ["sh", "-c", "sleep 3600"]
+          envFrom:
+            - secretRef:
+                name: db-credentials
+            - configMapRef:
+                name: app-config
+---
+# PVC bound to a non-existent StorageClass -> stays Pending, so the pod that
+# mounts it can never schedule.
+#   strix analyze deployment/warehouse -n strix-demo
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc
+  namespace: strix-demo
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: nonexistent
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: warehouse
+  namespace: strix-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: warehouse
+  template:
+    metadata:
+      labels:
+        app: warehouse
+    spec:
+      containers:
+        - name: app
+          image: busybox:1.36
+          command: ["sh", "-c", "sleep 3600"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc

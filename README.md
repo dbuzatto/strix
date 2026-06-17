@@ -1,7 +1,7 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.png" />
-    <img src="assets/logo-light.png" alt="Strix" width="480" />
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg" />
+    <img src="assets/logo-light.svg" alt="Strix" width="240" />
   </picture>
   <h1>Strix</h1>
   <p><em>An owl that watches your Kubernetes cluster.</em></p>
@@ -23,9 +23,11 @@ or the **Anthropic API** when you configure a key.
 ## Demo
 
 <div align="center">
-  <img src="assets/demo/triage.png" alt="strix triage — a prioritized report of everything on fire in a namespace" width="760" />
+  <img src="assets/demo/strix-demo.svg" alt="strix in action — AI triage and root-cause analysis across workloads, services and rollouts" width="820" />
+  <p><em>Strix in action — AI triage and root-cause analysis across workloads, services, dependencies and rollouts.</em></p>
+  <img src="assets/demo/triage.svg" alt="strix triage — a prioritized report of everything on fire in a namespace" width="820" />
   <p><em><code>strix triage</code> — one prioritized report of everything on fire in a namespace.</em></p>
-  <img src="assets/demo/analyze.png" alt="strix analyze — AI root-cause analysis of a workload" width="760" />
+  <img src="assets/demo/analyze.svg" alt="strix analyze — AI root-cause analysis of a workload" width="820" />
   <p><em><code>strix analyze</code> — AI root-cause analysis of a single workload.</em></p>
 </div>
 
@@ -33,9 +35,24 @@ or the **Anthropic API** when you configure a key.
 
 - **AI root-cause analysis** — `strix analyze <kind/name>` gathers status,
   events and logs for pods, deployments, statefulsets, daemonsets, jobs,
-  cronjobs and nodes, then explains the cause and the fix.
+  cronjobs, nodes, services and ingresses, then explains the cause and the fix.
+- **Network diagnosis** — `strix analyze service/x` / `ingress/x` checks the
+  selector-to-pods match, ready endpoints, NetworkPolicies and TLS/backends,
+  catching the classic "Service routes to nothing" and 503 causes that never
+  show up in logs.
+- **Dependency checks** — before calling the AI, Strix verifies the
+  ConfigMaps, Secrets and PVCs a pod references actually exist (and PVCs are
+  Bound) and that its ServiceAccount is present — a whole class of
+  CrashLoopBackOff/Pending failures, surfaced instantly.
+- **"What changed"** — `analyze` on a Deployment reconstructs its rollout
+  history and flags the image bump in the latest revision, so a regression is
+  pinned to a specific rollout you can `kubectl rollout undo`.
 - **Namespace triage** — `strix triage` sweeps a namespace (or every namespace)
-  and produces a single prioritized report grouping related symptoms.
+  and produces a single prioritized report grouping related symptoms. With
+  `--json --exit-code` it doubles as a CI/cron cluster-health gate.
+- **RBAC made obvious** — `strix can-i <verb> <resource>` answers the
+  permission check like `kubectl auth can-i`, but when the answer is *no* it
+  explains the gap and prints the exact Role/RoleBinding that would grant it.
 - **Live resource usage** — `strix top` shows node and pod CPU/memory with
   htop-style gauges, including a real-time `--watch` dashboard.
 - **Bring your own AI** — uses the local Claude Code by default; falls back to
@@ -89,9 +106,20 @@ names, deliberately broken workloads — and point Strix at it:
 
 ```bash
 kubectl apply -f examples/demo.yaml
-strix triage -n strix-demo
-strix analyze deployment/payments-api -n strix-demo
-kubectl delete -f examples/demo.yaml      # clean up
+strix triage -n strix-demo                          # everything on fire, ranked
+strix analyze deployment/payments-api -n strix-demo # CrashLoopBackOff root cause
+strix analyze service/orphan-svc -n strix-demo      # a Service that routes to nothing
+strix analyze service/payments-api -n strix-demo    # zero ready endpoints
+strix analyze deployment/report-gen -n strix-demo   # missing Secret + ConfigMap
+strix analyze deployment/warehouse -n strix-demo    # unbound PVC
+
+# See the rollout diagnosis: deploy a good image, then break it on a new revision
+kubectl -n strix-demo create deployment api --image=nginx:1.25
+kubectl -n strix-demo set image deployment/api nginx=nginx:nope
+strix analyze deployment/api -n strix-demo          # pins the bad image bump
+
+kubectl delete -f examples/demo.yaml                # clean up
+kubectl -n strix-demo delete deployment api         # (the imperative one)
 ```
 
 ## Usage
@@ -102,6 +130,8 @@ strix analyze deployment/api -n prod            # analyze a deployment + its pod
 strix analyze statefulset/postgres -n data      # statefulset + its pods
 strix analyze cronjob/nightly-backup -n ops     # cronjob + its most recent runs
 strix analyze node/worker-3                     # node pressure, taints & scheduling
+strix analyze service/api -n prod               # endpoints, selector & NetworkPolicy
+strix analyze ingress/web -n prod               # backends, TLS & routing
 strix analyze deployment/api -o report.md       # save the report to a file
 strix analyze pod/api-7d9f --raw                # print gathered evidence, skip the AI
 strix analyze pod/api-7d9f --lang pt            # answer in Portuguese
@@ -132,6 +162,8 @@ strix triage -n prod            # scan one namespace and rank what is on fire
 strix triage -A                 # sweep every namespace
 strix triage -n prod --raw      # print the raw findings, skip the AI
 strix triage -n prod --lang pt  # report in Portuguese
+strix triage -A --json --raw    # structured findings for scripts (no AI cost)
+strix triage -A --json --exit-code   # CI/cron gate: exit 2 if anything is wrong
 ```
 
 `triage` sweeps for unhealthy pods, workloads below their desired replicas,
@@ -139,6 +171,31 @@ failed jobs and recent warning events, then produces a single prioritized
 report grouping related symptoms. It gathers only status and events (no logs),
 so it stays fast and cheap; drill into anything it flags with
 `strix analyze <kind/name>`.
+
+For automation, `--json` emits `{scope, healthy, issues, findings[], report}`
+and `--exit-code` makes the command exit **2** when any issue is found (0 =
+clean, 1 = a Strix error) — drop it into a CI step or a cron job to fail the
+build or alert when a cluster degrades.
+
+### Check RBAC permissions
+
+`Forbidden` errors are among the most common — and most confusing — in
+Kubernetes. `strix can-i` answers the access check and, when it's denied, tells
+you exactly how to fix it:
+
+```bash
+strix can-i create deployments -n prod
+strix can-i get pods/api-7d9f -n prod
+strix can-i list nodes                                  # cluster-scoped resource
+strix can-i create secrets -n prod --as system:serviceaccount:prod:ci
+strix can-i delete pods -n prod --as alice@example.com  # impersonate a user
+```
+
+When the answer is *no*, Strix lists the subject's current grants and prints a
+ready-to-apply `Role`/`RoleBinding` (or `ClusterRole`/`ClusterRoleBinding` for
+cluster-scoped resources) that closes the gap — no hand-writing RBAC YAML. It
+resolves resource shorthands (`deploy`, `po`) and API groups exactly like
+`kubectl`.
 
 ### AI backend
 

@@ -1,13 +1,15 @@
 # Demo assets
 
-The main README references screenshots from this folder. Drop your captures
-here with these exact names so they render:
+The main README references these demo assets:
 
-- `triage.png` — output of `strix triage -n strix-demo`
-- `analyze.png` — output of `strix analyze deployment/payments-api -n strix-demo`
+- `strix-demo.svg` — animated terminal demo (triage + analyze), generated from
+  real, colored strix output captured under a pty.
+- `triage.svg` — a still of `strix triage -n strix-demo`.
+- `analyze.svg` — a still of `strix analyze deployment/api -n strix-demo`.
+
+All three share the same theme, palette and geometry so they render uniformly.
 
 Generate a safe, data-free cluster to capture from with
 [`examples/demo.yaml`](../../examples/demo.yaml) (fictional names, deliberately
-broken workloads). A terminal recording (`.gif`, e.g. via
-[asciinema](https://asciinema.org) + [agg](https://github.com/asciinema/agg))
-named `strix.gif` also works — reference it from the README's Demo section.
+broken workloads). Capture against a throwaway cluster (kind/minikube/k3d) — the
+fixture's broken workloads exercise every diagnosis path the demo shows.

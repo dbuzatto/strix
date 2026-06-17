@@ -32,10 +32,12 @@ var kindAliases = map[string]string{
 	"job": "job", "jobs": "job",
 	"cj": "cronjob", "cronjob": "cronjob", "cronjobs": "cronjob",
 	"no": "node", "node": "node", "nodes": "node",
+	"svc": "service", "service": "service", "services": "service",
+	"ing": "ingress", "ingress": "ingress", "ingresses": "ingress",
 }
 
 // supportedKinds lists the canonical kinds Gather understands, for error messages.
-const supportedKinds = "pod, deployment, statefulset, daemonset, job, cronjob, node"
+const supportedKinds = "pod, deployment, statefulset, daemonset, job, cronjob, node, service, ingress"
 
 // ParseRef parses a "kind/name" reference such as "deployment/api".
 func ParseRef(s string) (Ref, error) {
@@ -117,6 +119,18 @@ func (c *Client) Gather(ctx context.Context, ref Ref, opts GatherOptions) (strin
 			return "", fmt.Errorf("getting node: %w", err)
 		}
 		c.writeNode(ctx, &b, node)
+	case "service":
+		svc, err := c.Clientset.CoreV1().Services(ns).Get(ctx, ref.Name, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("getting service: %w", err)
+		}
+		c.writeService(ctx, &b, svc)
+	case "ingress":
+		ing, err := c.Clientset.NetworkingV1().Ingresses(ns).Get(ctx, ref.Name, metav1.GetOptions{})
+		if err != nil {
+			return "", fmt.Errorf("getting ingress: %w", err)
+		}
+		c.writeIngress(ctx, &b, ing)
 	default:
 		return "", fmt.Errorf("unsupported kind %q: supported kinds are %s", ref.Kind, supportedKinds)
 	}
@@ -134,6 +148,7 @@ func (c *Client) writeDeployment(ctx context.Context, b *strings.Builder, dep *a
 	}
 	b.WriteString("\n")
 
+	c.writeRollout(ctx, b, dep)
 	c.writeEvents(ctx, b, dep.Namespace, dep.Name)
 	c.writeManagedPods(ctx, b, dep.Namespace, dep.Spec.Selector, tail)
 }
@@ -250,6 +265,7 @@ func (c *Client) writePod(ctx context.Context, b *strings.Builder, pod *corev1.P
 	}
 	b.WriteString("\n")
 
+	c.writePodDependencies(ctx, b, pod)
 	c.writeEvents(ctx, b, pod.Namespace, pod.Name)
 	c.writeLogs(ctx, b, pod, tail)
 	b.WriteString("\n")

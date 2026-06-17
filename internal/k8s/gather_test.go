@@ -21,10 +21,14 @@ func TestParseRef(t *testing.T) {
 		{"node/worker-3", "node", "worker-3", false},
 		{"no/worker-3", "node", "worker-3", false},
 		{"NODE/worker-3", "node", "worker-3", false}, // case-insensitive kind
-		{"ingress/api", "", "", true},                // unsupported kind
-		{"api", "", "", true},                        // missing kind/name separator
-		{"pod/", "", "", true},                       // empty name
-		{"/api", "", "", true},                       // empty kind
+		{"svc/api", "service", "api", false},
+		{"service/api", "service", "api", false},
+		{"ing/web", "ingress", "web", false},
+		{"ingress/web", "ingress", "web", false},
+		{"configmap/api", "", "", true}, // unsupported kind
+		{"api", "", "", true},           // missing kind/name separator
+		{"pod/", "", "", true},          // empty name
+		{"/api", "", "", true},          // empty kind
 	}
 	for _, tc := range cases {
 		ref, err := ParseRef(tc.in)
