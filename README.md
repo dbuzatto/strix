@@ -1,7 +1,7 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.png" />
-    <img src="assets/logo-light.png" alt="Strix" width="480" />
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg" />
+    <img src="assets/logo-light.svg" alt="Strix" width="240" />
   </picture>
   <h1>Strix</h1>
   <p><em>An owl that watches your Kubernetes cluster.</em></p>
@@ -25,9 +25,9 @@ or the **Anthropic API** when you configure a key.
 <div align="center">
   <img src="assets/demo/strix-demo.svg" alt="strix in action — AI triage and root-cause analysis across workloads, services and rollouts" width="820" />
   <p><em>Strix in action — AI triage and root-cause analysis across workloads, services, dependencies and rollouts.</em></p>
-  <img src="assets/demo/triage.png" alt="strix triage — a prioritized report of everything on fire in a namespace" width="760" />
+  <img src="assets/demo/triage.svg" alt="strix triage — a prioritized report of everything on fire in a namespace" width="820" />
   <p><em><code>strix triage</code> — one prioritized report of everything on fire in a namespace.</em></p>
-  <img src="assets/demo/analyze.png" alt="strix analyze — AI root-cause analysis of a workload" width="760" />
+  <img src="assets/demo/analyze.svg" alt="strix analyze — AI root-cause analysis of a workload" width="820" />
   <p><em><code>strix analyze</code> — AI root-cause analysis of a single workload.</em></p>
 </div>
 
