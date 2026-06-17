@@ -136,7 +136,8 @@ func TestPodIssue(t *testing.T) {
 
 func TestWriteCategory(t *testing.T) {
 	var b strings.Builder
-	if n := writeCategory(&b, "Empty", nil); n != 0 {
+	var findings []TriageFinding
+	if n := writeCategory(&b, &findings, "Empty", nil); n != 0 {
 		t.Fatalf("writeCategory(empty) = %d, want 0", n)
 	}
 	if b.Len() != 0 {
@@ -145,10 +146,16 @@ func TestWriteCategory(t *testing.T) {
 
 	lines := make([]string, maxPerCategory+5)
 	for i := range lines {
-		lines[i] = "issue"
+		lines[i] = "prod/issue detail"
 	}
-	if n := writeCategory(&b, "Capped", lines); n != len(lines) {
+	if n := writeCategory(&b, &findings, "Capped", lines); n != len(lines) {
 		t.Fatalf("writeCategory(capped) = %d, want %d (full count, not capped)", n, len(lines))
+	}
+	if len(findings) != maxPerCategory {
+		t.Fatalf("collected %d findings, want %d (capped)", len(findings), maxPerCategory)
+	}
+	if findings[0].Namespace != "prod" || findings[0].Name != "issue" {
+		t.Fatalf("finding ns/name parse: got %q/%q, want prod/issue", findings[0].Namespace, findings[0].Name)
 	}
 	out := b.String()
 	if !strings.Contains(out, fmt.Sprintf("## Capped (%d)", len(lines))) {
@@ -157,7 +164,22 @@ func TestWriteCategory(t *testing.T) {
 	if !strings.Contains(out, "…and 5 more") {
 		t.Fatalf("missing overflow marker:\n%s", out)
 	}
-	if got := strings.Count(out, "- issue"); got != maxPerCategory {
+	if got := strings.Count(out, "- prod/issue detail"); got != maxPerCategory {
 		t.Fatalf("rendered %d entries, want %d", got, maxPerCategory)
+	}
+}
+
+func TestSplitNsName(t *testing.T) {
+	cases := []struct{ in, ns, name string }{
+		{"prod/api phase=Running", "prod", "api"},
+		{"[prod/api] FailedScheduling x3: ...", "prod", "api"},
+		{"clusterscoped", "", ""},
+		{"prod/ ", "", ""},
+	}
+	for _, c := range cases {
+		ns, name := splitNsName(c.in)
+		if ns != c.ns || name != c.name {
+			t.Errorf("splitNsName(%q) = %q/%q, want %q/%q", c.in, ns, name, c.ns, c.name)
+		}
 	}
 }
