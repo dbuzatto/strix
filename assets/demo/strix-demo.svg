@@ -163,9 +163,9 @@
             /* The colors defined below are the default 16 colors used for rendering text of the terminal. Adjust
                them as needed.
                gjm8 color theme (source: https://terminal.sexy/) */
-            .foreground {fill: #f8f8f2}
-            .background {fill: #272822}
-            .color0 {fill: #272822}
+            .foreground {fill: #d0d0d0}
+            .background {fill: #0d0d0d}
+            .color0 {fill: #0d0d0d}
             .color1 {fill: #f92672}
             .color2 {fill: #a6e22e}
             .color3 {fill: #f4bf75}
