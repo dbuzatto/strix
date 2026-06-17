@@ -23,8 +23,8 @@ or the **Anthropic API** when you configure a key.
 ## Demo
 
 <div align="center">
-  <img src="assets/demo/strix-demo.svg" alt="strix in action — instant network, dependency, rollout and triage diagnosis" width="820" />
-  <p><em>Instant diagnosis — network, dependencies, rollouts and namespace triage, no AI tokens needed.</em></p>
+  <img src="assets/demo/strix-demo.svg" alt="strix in action — AI triage and root-cause analysis across workloads, services and rollouts" width="820" />
+  <p><em>Strix in action — AI triage and root-cause analysis across workloads, services, dependencies and rollouts.</em></p>
   <img src="assets/demo/triage.png" alt="strix triage — a prioritized report of everything on fire in a namespace" width="760" />
   <p><em><code>strix triage</code> — one prioritized report of everything on fire in a namespace.</em></p>
   <img src="assets/demo/analyze.png" alt="strix analyze — AI root-cause analysis of a workload" width="760" />
